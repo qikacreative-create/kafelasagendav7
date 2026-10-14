@@ -37,6 +37,7 @@ import {
   syncAllBrandsToFirebase,
 } from '../services/firebaseClient';
 import { formatTanggalIndo } from '../utils/formatters';
+import { getLimits } from '../utils/subscription';
 
 interface SuperAdminDashboardProps {
   onSelectBrandForCashier: (brand: BrandRegistryItem) => void;

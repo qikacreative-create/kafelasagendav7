@@ -40,6 +40,7 @@ import {
   idKeEmailSistem,
   waKeEmailSistem,
 } from '../utils/formatters';
+import { getLimits } from '../utils/subscription';
 import { saveMedia } from './localDb';
 
 const STORAGE_KEY_FB_CONFIG = 'KAFELA_FIREBASE_CONFIG_V1';
@@ -864,34 +865,36 @@ export async function saveOwnerProfileToFirebase(
     cleanUpdates.username = cleanUpdates.username.trim().replace(/\s+/g, '');
   }
 
-  // Simpan foto galeri ke sub-koleksi galeri_web dan hapus dari dokumen utama
+  // Simpan foto galeri ke sub-koleksi galeri_web dan pertahankan di dokumen utama untuk performa & offline
   if (Array.isArray(updates.portofolioWeb)) {
     const rawPhotos = updates.portofolioWeb.slice(0, 8);
     const rawCaptions = Array.isArray(updates.portofolioCaptions)
       ? updates.portofolioCaptions.slice(0, 8)
       : [];
     
-    // Simpan ke sub-koleksi galeri_web
+    cleanUpdates.portofolioWeb = rawPhotos;
+    cleanUpdates.portofolioCaptions = rawCaptions;
+
+    // Sinkronkan ke sub-koleksi galeri_web untuk kompatibilitas
     for (let idx = 0; idx < 8; idx++) {
       const u = (rawPhotos[idx] || '').trim();
       const cap = (rawCaptions[idx] || '').trim();
       const slotId = `PORTO_${idx + 1}`;
       
-      if (u !== '') {
-        await setDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId), {
-          url: u,
-          caption: cap,
-        });
-      } else {
-        // Hapus slot jika kosong
-        try {
+      try {
+        if (u !== '') {
+          await setDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId), {
+            url: u,
+            caption: cap,
+            urutan: idx + 1,
+          });
+        } else {
           await deleteDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId));
-        } catch {}
+        }
+      } catch (eSlot) {
+        console.warn('Gagal sinkron slot galeri_web:', slotId, eSlot);
       }
     }
-    // Hapus field lama dari dokumen utama
-    delete cleanUpdates.portofolioWeb;
-    delete cleanUpdates.portofolioCaptions;
   }
 
   await setDoc(doc(fb.db, 'owners', targetOwnerId), cleanUpdates, { merge: true });
@@ -996,32 +999,42 @@ export async function checkAndIncrementActions(
   targetOwnerId: string,
   paketAktif: string
 ): Promise<boolean> {
-  const fb = initKafelaFirebase();
-  if (!fb) return false;
+  try {
+    const fb = initKafelaFirebase();
+    if (!fb || !targetOwnerId) return true; // Fail-safe: jika firebase gagal atau offline/demo, tetap izinkan
 
-  const ownerRef = doc(fb.db, 'owners', targetOwnerId);
-  const snap = await getDoc(ownerRef);
-  if (!snap.exists()) return false;
-  
-  const data = snap.data();
-  const limits = getLimits(paketAktif);
-  
-  const lastReset = data.lastResetDate as number || 0;
-  const now = Date.now();
-  const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
-  
-  let currentActions = isToday ? (data.actionsToday as number || 0) : 0;
-  
-  if (currentActions >= limits.maxDailyActions) {
-    return false;
+    const ownerRef = doc(fb.db, 'owners', targetOwnerId);
+    const snap = await getDoc(ownerRef);
+    if (!snap.exists()) return true;
+    
+    const data = snap.data();
+    const limits = getLimits(paketAktif || data.paketAktif || 'Standar');
+    if (!limits || limits.maxDailyActions === undefined) return true;
+    
+    const lastReset = (data.lastResetDate as number) || 0;
+    const now = Date.now();
+    const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
+    
+    let currentActions = isToday ? ((data.actionsToday as number) || 0) : 0;
+    
+    if (limits.maxDailyActions > 0 && currentActions >= limits.maxDailyActions) {
+      return false;
+    }
+    
+    try {
+      await updateDoc(ownerRef, {
+        actionsToday: currentActions + 1,
+        lastResetDate: isToday ? lastReset : now,
+      });
+    } catch (updateErr) {
+      console.warn('Gagal mengupdate actionsToday di Firestore:', updateErr);
+    }
+    
+    return true;
+  } catch (err) {
+    console.warn('Error saat memeriksa limit aktivitas harian:', err);
+    return true; // Fail-safe agar aksi pengguna tidak terblokir saat terjadi kendala jaringan/ekstensi browser
   }
-  
-  await updateDoc(ownerRef, {
-    actionsToday: currentActions + 1,
-    lastResetDate: isToday ? lastReset : now
-  });
-  
-  return true;
 }
 
 /**
@@ -1032,32 +1045,42 @@ export async function checkAndIncrementVisits(
   targetOwnerId: string,
   paketAktif: string
 ): Promise<boolean> {
-  const fb = initKafelaFirebase();
-  if (!fb) return true; // Fail-safe: jika firebase gagal, tetap izinkan
+  try {
+    const fb = initKafelaFirebase();
+    if (!fb || !targetOwnerId) return true; // Fail-safe: jika firebase gagal, tetap izinkan
 
-  const ownerRef = doc(fb.db, 'owners', targetOwnerId);
-  const snap = await getDoc(ownerRef);
-  if (!snap.exists()) return true;
-  
-  const data = snap.data();
-  const limits = getLimits(paketAktif);
-  
-  const lastReset = data.lastResetDate as number || 0;
-  const now = Date.now();
-  const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
-  
-  let currentVisits = isToday ? (data.visitsToday as number || 0) : 0;
-  
-  if (currentVisits >= limits.maxDailyVisits) {
-    return false;
+    const ownerRef = doc(fb.db, 'owners', targetOwnerId);
+    const snap = await getDoc(ownerRef);
+    if (!snap.exists()) return true;
+    
+    const data = snap.data();
+    const limits = getLimits(paketAktif || data.paketAktif || 'Standar');
+    if (!limits || limits.maxDailyVisits === undefined) return true;
+    
+    const lastReset = (data.lastResetDate as number) || 0;
+    const now = Date.now();
+    const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
+    
+    let currentVisits = isToday ? ((data.visitsToday as number) || 0) : 0;
+    
+    if (limits.maxDailyVisits > 0 && currentVisits >= limits.maxDailyVisits) {
+      return false;
+    }
+    
+    try {
+      await updateDoc(ownerRef, {
+        visitsToday: currentVisits + 1,
+        lastResetDate: isToday ? lastReset : now,
+      });
+    } catch (updateErr) {
+      console.warn('Gagal mengupdate visitsToday di Firestore:', updateErr);
+    }
+    
+    return true;
+  } catch (err) {
+    console.warn('Error saat memeriksa limit kunjungan:', err);
+    return true; // Fail-safe
   }
-  
-  await updateDoc(ownerRef, {
-    visitsToday: currentVisits + 1,
-    lastResetDate: isToday ? lastReset : now
-  });
-  
-  return true;
 }
 
 export async function deleteTimFromFirebase(

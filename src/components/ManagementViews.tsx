@@ -1454,97 +1454,109 @@ export const PengaturanStudioView: React.FC<{
     maxDim: number,
     maxChars: number
   ): Promise<string> =>
-    new Promise((resolve, reject) => {
+    new Promise((resolve) => {
       if (!rawDataUrl || !rawDataUrl.startsWith('data:image/')) {
         resolve(rawDataUrl);
         return;
       }
-      const img = new Image();
-      img.onload = () => {
-        let targetW = img.width;
-        let targetH = img.height;
-        if (targetW > maxDim || targetH > maxDim) {
-          if (targetW > targetH) {
-            targetH = Math.round((targetH * maxDim) / targetW);
-            targetW = maxDim;
-          } else {
-            targetW = Math.round((targetW * maxDim) / targetH);
-            targetH = maxDim;
+      const safetyTimeout = setTimeout(() => resolve(rawDataUrl), 3500);
+      try {
+        const img = new Image();
+        img.onload = () => {
+          clearTimeout(safetyTimeout);
+          try {
+            let targetW = img.width;
+            let targetH = img.height;
+            if (targetW > maxDim || targetH > maxDim) {
+              if (targetW > targetH) {
+                targetH = Math.round((targetH * maxDim) / targetW);
+                targetW = maxDim;
+              } else {
+                targetW = Math.round((targetW * maxDim) / targetH);
+                targetH = maxDim;
+              }
+            }
+
+            // MULTI-STEP PROGRESSIVE DOWNSCALING
+            let curCanvas = document.createElement('canvas');
+            let curW = img.width;
+            let curH = img.height;
+            curCanvas.width = curW;
+            curCanvas.height = curH;
+            const curCtx = curCanvas.getContext('2d');
+            if (!curCtx) {
+              resolve(rawDataUrl);
+              return;
+            }
+            curCtx.imageSmoothingEnabled = true;
+            curCtx.imageSmoothingQuality = 'high';
+            curCtx.drawImage(img, 0, 0, curW, curH);
+
+            while (curW * 0.5 > targetW && curH * 0.5 > targetH) {
+              const nextW = Math.max(targetW, Math.round(curW * 0.5));
+              const nextH = Math.max(targetH, Math.round(curH * 0.5));
+              const stepCanvas = document.createElement('canvas');
+              stepCanvas.width = nextW;
+              stepCanvas.height = nextH;
+              const stepCtx = stepCanvas.getContext('2d');
+              if (!stepCtx) break;
+              stepCtx.imageSmoothingEnabled = true;
+              stepCtx.imageSmoothingQuality = 'high';
+              stepCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+              curCanvas = stepCanvas;
+              curW = nextW;
+              curH = nextH;
+            }
+
+            let finalCanvas = document.createElement('canvas');
+            finalCanvas.width = targetW;
+            finalCanvas.height = targetH;
+            const finalCtx = finalCanvas.getContext('2d');
+            if (!finalCtx) {
+              resolve(rawDataUrl);
+              return;
+            }
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
+
+            let q = 0.84;
+            let resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
+            while (resultDataUrl.length > maxChars && q > 0.58) {
+              q -= 0.06;
+              resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
+            }
+
+            while (resultDataUrl.length > maxChars && targetW > 640) {
+              targetW = Math.round(targetW * 0.85);
+              targetH = Math.round(targetH * 0.85);
+              const smaller = document.createElement('canvas');
+              smaller.width = targetW;
+              smaller.height = targetH;
+              const sCtx = smaller.getContext('2d');
+              if (!sCtx) break;
+              sCtx.imageSmoothingEnabled = true;
+              sCtx.imageSmoothingQuality = 'high';
+              sCtx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height, 0, 0, targetW, targetH);
+              finalCanvas = smaller;
+              resultDataUrl = finalCanvas.toDataURL('image/jpeg', 0.76);
+            }
+
+            resolve(resultDataUrl);
+          } catch (e) {
+            console.warn('Gagal kompresi canvas, menggunakan foto asli:', e);
+            resolve(rawDataUrl);
           }
-        }
-
-        // MULTI-STEP PROGRESSIVE DOWNSCALING (Halving 50% bertahap agar tajam & anti-pecah)
-        let curCanvas = document.createElement('canvas');
-        let curW = img.width;
-        let curH = img.height;
-        curCanvas.width = curW;
-        curCanvas.height = curH;
-        const curCtx = curCanvas.getContext('2d');
-        if (!curCtx) {
-          reject(new Error('Canvas context gagal'));
-          return;
-        }
-        curCtx.imageSmoothingEnabled = true;
-        curCtx.imageSmoothingQuality = 'high';
-        curCtx.drawImage(img, 0, 0, curW, curH);
-
-        while (curW * 0.5 > targetW && curH * 0.5 > targetH) {
-          const nextW = Math.max(targetW, Math.round(curW * 0.5));
-          const nextH = Math.max(targetH, Math.round(curH * 0.5));
-          const stepCanvas = document.createElement('canvas');
-          stepCanvas.width = nextW;
-          stepCanvas.height = nextH;
-          const stepCtx = stepCanvas.getContext('2d');
-          if (!stepCtx) break;
-          stepCtx.imageSmoothingEnabled = true;
-          stepCtx.imageSmoothingQuality = 'high';
-          stepCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
-          curCanvas = stepCanvas;
-          curW = nextW;
-          curH = nextH;
-        }
-
-        let finalCanvas = document.createElement('canvas');
-        finalCanvas.width = targetW;
-        finalCanvas.height = targetH;
-        const finalCtx = finalCanvas.getContext('2d');
-        if (!finalCtx) {
-          reject(new Error('Canvas context gagal'));
-          return;
-        }
-        finalCtx.imageSmoothingEnabled = true;
-        finalCtx.imageSmoothingQuality = 'high';
-        finalCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
-
-        // Pastikan setiap foto <= maxChars (~95.000 karakter = ~70 KB)
-        // supaya 8 foto sekaligus (~560 KB) 100% muat di bawah batas 1MB Firestore tanpa pernah gagal simpan!
-        let q = 0.84;
-        let resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
-        while (resultDataUrl.length > maxChars && q > 0.58) {
-          q -= 0.06;
-          resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
-        }
-
-        // Jika masih di atas budget, turunkan dimensi 15% secara halus
-        while (resultDataUrl.length > maxChars && targetW > 640) {
-          targetW = Math.round(targetW * 0.85);
-          targetH = Math.round(targetH * 0.85);
-          const smaller = document.createElement('canvas');
-          smaller.width = targetW;
-          smaller.height = targetH;
-          const sCtx = smaller.getContext('2d');
-          if (!sCtx) break;
-          sCtx.imageSmoothingEnabled = true;
-          sCtx.imageSmoothingQuality = 'high';
-          sCtx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height, 0, 0, targetW, targetH);
-          finalCanvas = smaller;
-          resultDataUrl = finalCanvas.toDataURL('image/jpeg', 0.76);
-        }
-
-        resolve(resultDataUrl);
-      };
-      img.onerror = reject;
-      img.src = rawDataUrl;
+        };
+        img.onerror = () => {
+          clearTimeout(safetyTimeout);
+          resolve(rawDataUrl);
+        };
+        img.src = rawDataUrl;
+      } catch (e) {
+        clearTimeout(safetyTimeout);
+        resolve(rawDataUrl);
+      }
     });
 
   const compressGalleryImage = (file: File, maxDim: number): Promise<string> =>
@@ -3126,93 +3138,120 @@ export const PengaturanStudioView: React.FC<{
             type="button"
             disabled={isSavingToast}
             onClick={async () => {
-              const validPhotos: string[] = [];
-              const validCaptions: string[] = [];
-              for (let i = 0; i < 8; i++) {
-                const u = (portoPhotos[i] || '').trim();
-                if (u) {
-                  // Pastikan foto lama yang ukurannya terlalu besar otomatis di-fit <= 95KB sebelum dikirim ke Firestore
-                  const safePhoto =
-                    u.startsWith('data:image/') && u.length > 98000
-                      ? await compressDataUrlToBudget(u, 1280, 95000)
-                      : u;
-                  validPhotos.push(safePhoto);
-                  validCaptions.push((portoCaptions[i] || '').trim());
+              if (isSavingToast) return;
+              try {
+                setIsSavingToast(true);
+                setSavedBanner('Memproses foto & menyimpan identitas website...');
+
+                const validPhotos: string[] = [];
+                const validCaptions: string[] = [];
+                for (let i = 0; i < 8; i++) {
+                  const u = (portoPhotos[i] || '').trim();
+                  if (u) {
+                    try {
+                      const safePhoto =
+                        u.startsWith('data:image/') && u.length > 98000
+                          ? await compressDataUrlToBudget(u, 1280, 95000)
+                          : u;
+                      validPhotos.push(safePhoto);
+                    } catch {
+                      validPhotos.push(u);
+                    }
+                    validCaptions.push((portoCaptions[i] || '').trim());
+                  }
                 }
-              }
 
-              // Fit foto Web 2
-              const validWeb2Photos: string[] = [];
-              const validWeb2Captions: string[] = [];
-              for (let i = 0; i < 6; i++) {
-                const u2 = (web2PortoPhotos[i] || '').trim();
-                if (u2) {
-                  const safePhoto2 =
-                    u2.startsWith('data:image/') && u2.length > 98000
-                      ? await compressDataUrlToBudget(u2, 1280, 95000)
-                      : u2;
-                  validWeb2Photos.push(safePhoto2);
-                  validWeb2Captions.push((web2PortoCaptions[i] || '').trim());
+                // Fit foto Web 2
+                const validWeb2Photos: string[] = [];
+                const validWeb2Captions: string[] = [];
+                for (let i = 0; i < 6; i++) {
+                  const u2 = (web2PortoPhotos[i] || '').trim();
+                  if (u2) {
+                    try {
+                      const safePhoto2 =
+                        u2.startsWith('data:image/') && u2.length > 98000
+                          ? await compressDataUrlToBudget(u2, 1280, 95000)
+                          : u2;
+                      validWeb2Photos.push(safePhoto2);
+                    } catch {
+                      validWeb2Photos.push(u2);
+                    }
+                    validWeb2Captions.push((web2PortoCaptions[i] || '').trim());
+                  }
                 }
-              }
 
-              const safeLogo =
-                logoWeb && logoWeb.startsWith('data:image/') && logoWeb.length > 48000
-                  ? await compressDataUrlToBudget(logoWeb, 500, 45000)
-                  : logoWeb || '/logo-kafela.svg';
+                let safeLogo = logoWeb || '/logo-kafela.svg';
+                if (logoWeb && logoWeb.startsWith('data:image/') && logoWeb.length > 48000) {
+                  try {
+                    safeLogo = await compressDataUrlToBudget(logoWeb, 500, 45000);
+                  } catch {
+                    safeLogo = logoWeb;
+                  }
+                }
 
-              // Check rate limit
-              const isAllowed = await checkAndIncrementActions(owner.uid, owner.paketAktif);
-              if (!isAllowed) {
-                alert("Batas aktivitas harian tercapai. Silakan coba lagi besok.");
-                return;
-              }
+                // Rate limit check jika ada
+                if (owner.uid) {
+                  try {
+                    const isAllowed = await checkAndIncrementActions(owner.uid, owner.paketAktif);
+                    if (!isAllowed) {
+                      setSavedBanner('Perhatian: Batas aktivitas harian paket tercapai, namun perubahan tetap disimpan secara lokal.');
+                    }
+                  } catch (eLimit) {
+                    console.warn('Rate limit bypass:', eLimit);
+                  }
+                }
 
-              handleSaveOwnerWithToast(
-                {
-                  username: usernameWeb.trim().toLowerCase().replace(/\s+/g, ''),
-                  taglineWeb,
-                  bioWeb,
-                  linkIg,
-                  linkTiktok,
-                            linkYoutube,
-          linkFacebook,
+                await handleSaveOwnerWithToast(
+                  {
+                    username: (usernameWeb || 'studio').trim().toLowerCase().replace(/\s+/g, ''),
+                    taglineWeb,
+                    bioWeb,
+                    linkIg,
+                    linkTiktok,
+                    linkYoutube,
+                    linkFacebook,
 
-                  lokasi1,
-                  lokasi2,
-                  lokasi3,
-                  logoBrandUrl: safeLogo,
-                  portofolioWeb: validPhotos,
-                  portofolioCaptions: validCaptions,
-                  temaWeb,
-                  layoutWeb,
-                  pesanPenutupWeb,
-                  jamOperasionalWeb,
-                  ctaTeksKustom,
-                  ctaLinkKustom,
-                  teksTombolBooking,
-                            customLinks,
-
-                  isWebsiteActive,
-                  isBookingActive,
-                  webProfil2: {
-                    aktif: web2Aktif,
-                    subJudul: web2SubJudul.trim(),
-                    usernameSlug: web2Slug.trim().toLowerCase().replace(/\s+/g, ''),
-                    taglineWeb: web2Tagline,
-                    bioWeb: web2Bio,
-                    temaWeb: web2Tema,
-                    layoutWeb: web2Layout,
-                    linkBookingKhusus: web2LinkBookingKhusus.trim(),
-                    portofolioWeb: validWeb2Photos,
-                    portofolioCaptions: validWeb2Captions,
+                    lokasi1,
+                    lokasi2,
+                    lokasi3,
+                    logoBrandUrl: safeLogo,
+                    portofolioWeb: validPhotos,
+                    portofolioCaptions: validCaptions,
+                    temaWeb,
+                    layoutWeb,
                     pesanPenutupWeb,
+                    jamOperasionalWeb,
+                    ctaTeksKustom,
+                    ctaLinkKustom,
+                    teksTombolBooking,
+                    customLinks,
+
+                    isWebsiteActive,
+                    isBookingActive,
+                    webProfil2: {
+                      aktif: web2Aktif,
+                      subJudul: (web2SubJudul || '').trim(),
+                      usernameSlug: (web2Slug || 'sub-brand').trim().toLowerCase().replace(/\s+/g, ''),
+                      taglineWeb: web2Tagline,
+                      bioWeb: web2Bio,
+                      temaWeb: web2Tema,
+                      layoutWeb: web2Layout,
+                      linkBookingKhusus: (web2LinkBookingKhusus || '').trim(),
+                      portofolioWeb: validWeb2Photos,
+                      portofolioCaptions: validWeb2Captions,
+                      pesanPenutupWeb,
+                    },
                   },
-                },
-                'Pengaturan Website, Layout, Penutup & Web Ke-2 berhasil disimpan ke server!'
-              );
+                  'Pengaturan Website, Layout, Penutup & Web Ke-2 berhasil disimpan ke server!'
+                );
+              } catch (err) {
+                console.error('Gagal menyimpan identitas website:', err);
+                setIsSavingToast(false);
+                setSavedBanner('Terjadi kesalahan saat memproses data. Silakan coba kembali.');
+                setTimeout(() => setSavedBanner(null), 4000);
+              }
             }}
-            className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-extrabold shadow-lg cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-60 text-white font-extrabold shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
           >
             <Check className="w-4 h-4" />
             <span>

@@ -1233,127 +1233,101 @@
         }
 
         /* ==========================================================================
-           HALAMAN GALERI PORTOFOLIO (1 FOTO UTAMA DI ATAS + GRID FOTO)
+           HALAMAN GALERI PORTOFOLIO (SEMUANYA KOTAK SERAGAM, TANPA FOTO BESAR DI ATAS)
            ========================================================================== */
         .featured-karya-hero {
-            position: relative;
-            width: 100%;
-            height: 490px;
-            border-radius: 24px;
-            overflow: hidden;
-            background: #141012;
-            border: 1.5px solid var(--am-line);
-            box-shadow: var(--am-shadow);
-            margin-bottom: 24px;
-            cursor: zoom-in;
-        }
-
-        .featured-karya-hero img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center center;
-            display: block;
-            transition: transform 0.4s ease;
-        }
-
-        .featured-karya-hero:hover img {
-            transform: scale(1.02);
-        }
-
-        .featured-karya-caption {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 36px 24px 20px;
-            background: linear-gradient(to top, rgba(12, 10, 12, 0.9) 0%, rgba(12, 10, 12, 0.45) 60%, transparent 100%);
-            color: #ffffff;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .featured-karya-badge {
-            display: inline-block;
-            font-size: 10.5px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.14em;
-            color: #e5c158;
-            margin-bottom: 4px;
-        }
-
-        .featured-karya-title {
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: clamp(24px, 3.2vw, 34px);
-            font-weight: 700;
-            color: #ffffff;
-            line-height: 1.15;
-        }
-
-        .featured-zoom-pill {
-            background: rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: #ffffff;
-            padding: 8px 16px;
-            border-radius: 99px;
-            font-size: 12px;
-            font-weight: 700;
+            display: none !important;
         }
 
         .gal-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
-            gap: 18px;
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+            gap: 16px !important;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 640px) {
+            .gal-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+            }
         }
 
         figure.gal {
             background: var(--am-paper);
             border: 1.5px solid var(--am-line);
-            border-radius: 18px;
+            border-radius: 16px;
             overflow: hidden;
             cursor: pointer;
             box-shadow: var(--am-shadow);
-            transition: transform 0.25s ease, border-color 0.25s ease;
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+            position: relative;
+            aspect-ratio: 1 / 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            margin: 0 !important;
         }
 
-        figure.gal:hover,
-        figure.gal.active-thumb {
+        figure.gal:hover {
             transform: translateY(-4px);
             border-color: var(--am-gold);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
         }
 
         figure.gal img {
-            width: 100%;
-            height: 290px;
-            object-fit: cover;
-            object-position: center center;
-            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            aspect-ratio: 1 / 1 !important;
+            object-fit: cover !important;
+            object-position: center center !important;
+            display: block !important;
+            transition: transform 0.4s ease;
+        }
+
+        figure.gal:hover img {
+            transform: scale(1.06);
         }
 
         figure.gal figcaption {
-            padding: 13px 16px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 12px 10px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.4) 65%, transparent 100%);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
+            color: #ffffff;
+            pointer-events: none;
+            z-index: 2;
         }
 
         .g-name {
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 18px;
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            font-size: 13px;
             font-weight: 700;
-            color: var(--am-ink);
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
             line-height: 1.25;
         }
 
         .g-tag {
-            font-size: 10.5px;
-            text-transform: uppercase;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: #f7d58b;
+            background: rgba(0, 0, 0, 0.55);
+            padding: 2px 7px;
+            border-radius: 99px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
             letter-spacing: 0.08em;
             color: var(--am-accent);
             font-weight: 700;
@@ -1694,19 +1668,7 @@
                         <button type="button" class="masonry-filter-pill" onclick="filterKaryaMasonry('DETAIL', this)">📸 Detail &amp; Dekor</button>
                     </div>
 
-                    <!-- 1 FOTO UTAMA BESAR DI ATAS HALAMAN PORTOFOLIO -->
-                    <div id="featuredKaryaWrap" class="featured-karya-hero" onclick="bukaLightbox(featuredKaryaUrl, featuredKaryaTitle)">
-                        <img id="featuredKaryaImg" src="" alt="Foto Utama">
-                        <div class="featured-karya-caption">
-                            <div>
-                                <span class="featured-karya-badge">Foto Pilihan</span>
-                                <h3 id="featuredKaryaTitleEl" class="featured-karya-title">Koleksi Portofolio</h3>
-                            </div>
-                            <span class="featured-zoom-pill">&#128269; Perbesar</span>
-                        </div>
-                    </div>
-
-                    <!-- GRID FOTO PORTOFOLIO DI BAWAH FOTO BESAR -->
+                    <!-- GRID FOTO PORTOFOLIO (KOTAK SERAGAM, KLIK UNTUK GAMBAR UTUH) -->
                     <div id="amGalleryGrid" class="gal-grid"></div>
 
                     <div style="text-align: center; margin-top: 28px;">
@@ -1875,18 +1837,7 @@
         }
         if (filtered.length === 0) filtered = window.listKaryaItems;
 
-        amGal.innerHTML = filtered.map((item, idx) => {
-            const safeTitle = item.judul.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            return `
-                <figure class="gal" onclick="klikItemGaleri(${idx}, '${item.url}', '${safeTitle}')">
-                    <img src="${item.url}" alt="${safeTitle}">
-                    <figcaption>
-                        <div class="g-name">${item.judul}</div>
-                        <div class="g-tag">0${idx + 1}</div>
-                    </figcaption>
-                </figure>
-            `;
-        }).join('');
+        renderGaleriPortofolio(filtered);
     };
 
     window.navigasiKe = function(pageIdx, sectionId) {
@@ -2578,51 +2529,70 @@
             coverEl.src = sourceItems[0].url;
         }
 
-        // Foto untuk Halaman Galeri: Ambil Foto 2 s/d 8 (atau Foto 1 jika baru 1 foto)
-        const karyaItems = sourceItems.length > 1 ? sourceItems.slice(1) : sourceItems;
-        listKaryaItems = karyaItems.map((item, idx) => ({
+        // Tampilkan semua foto yang diunggah ke dalam galeri portofolio (kotak seragam)
+        listKaryaItems = sourceItems.map((item, idx) => ({
             url: item.url,
             judul: item.judul || `Portofolio ${String(idx + 1).padStart(2, '0')}`,
             kategori: jenisUsaha
         }));
+        window.listKaryaItems = listKaryaItems;
 
-        pilihKaryaUtama(0);
+        renderGaleriPortofolio(listKaryaItems);
 
         // Hapus splash screen setelah data dimuat
         const splash = document.getElementById('splashScreen');
         if (splash) splash.style.display = 'none';
     }
 
-    window.pilihKaryaUtama = function(activeIdx) {
-        if (!listKaryaItems || listKaryaItems.length === 0) return;
-        const chosen = listKaryaItems[activeIdx] || listKaryaItems[0];
-        window.featuredKaryaUrl = chosen.url;
-        window.featuredKaryaTitle = chosen.judul;
-
-        // Set 1 Foto Utama di Atas Halaman Portofolio
-        document.getElementById('featuredKaryaImg').src = chosen.url;
-        document.getElementById('featuredKaryaTitleEl').innerText = chosen.judul;
-
-        // Render Grid Foto di Bawahnya
+    function renderGaleriPortofolio(items) {
         const amGal = document.getElementById('amGalleryGrid');
-        amGal.innerHTML = listKaryaItems.map((item, idx) => {
-            const isActive = idx === activeIdx ? 'active-thumb' : '';
-            const safeTitle = item.judul.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        if (!amGal) return;
+        if (!items || items.length === 0) {
+            amGal.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px 16px; color: var(--am-ink); opacity: 0.7; font-size: 14px;">Belum ada foto portofolio yang diunggah.</div>';
+            return;
+        }
+        amGal.innerHTML = items.map((item, idx) => {
+            const safeTitle = (item.judul || `Karya 0${idx + 1}`).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             return `
-                <figure class="gal ${isActive}" onclick="klikItemGaleri(${idx}, '${item.url}', '${safeTitle}')">
-                    <img src="${item.url}" alt="${safeTitle}">
+                <figure class="gal" onclick="bukaGambarUtuh('${item.url}', '${safeTitle}')" title="Klik untuk membuka gambar utuh">
+                    <img src="${item.url}" alt="${safeTitle}" loading="lazy">
                     <figcaption>
-                        <div class="g-name">${item.judul}</div>
+                        <div class="g-name">${item.judul || `Karya 0${idx + 1}`}</div>
                         <div class="g-tag">0${idx + 1}</div>
                     </figcaption>
                 </figure>
             `;
         }).join('');
-    };
+    }
+    window.renderGaleriPortofolio = renderGaleriPortofolio;
 
+    function bukaGambarUtuh(url, title) {
+        if (!url) return;
+        const lbImg = document.getElementById('lightboxImg');
+        if (lbImg) lbImg.src = url;
+        const lbCap = document.getElementById('lightboxCaption');
+        if (lbCap) lbCap.innerText = title || '';
+        const lbModal = document.getElementById('lightboxModal');
+        if (lbModal) lbModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    window.bukaGambarUtuh = bukaGambarUtuh;
+    window.bukaLightbox = bukaGambarUtuh;
+
+    function tutupLightbox() {
+        const lbModal = document.getElementById('lightboxModal');
+        if (lbModal) lbModal.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    window.tutupLightbox = tutupLightbox;
+
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') tutupLightbox();
+    });
+
+    window.pilihKaryaUtama = function() {};
     window.klikItemGaleri = function(idx, url, title) {
-        window.pilihKaryaUtama(idx);
-        window.bukaLightbox(url, title);
+        bukaGambarUtuh(url, title);
     };
 
     async function muatKatalogPaket(uid) {
@@ -2693,14 +2663,6 @@
         }
     }
 
-    window.bukaLightbox = function(url, captionText) {
-        document.getElementById('lightboxImg').src = url;
-        document.getElementById('lightboxCaption').innerText = captionText || '';
-        document.getElementById('lightboxModal').classList.add('open');
-    };
-    window.tutupLightbox = function() {
-        document.getElementById('lightboxModal').classList.remove('open');
-    };
 
     window.bukaChatWA = function() {
         let cleanWa = (window.ownerNoWa || '').replace(/[^0-9]/g, '');
