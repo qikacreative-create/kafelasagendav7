@@ -256,6 +256,7 @@
             border: 1px solid rgba(212, 175, 55, 0.35) !important;
             box-shadow: 0 24px 60px rgba(0,0,0,0.85) !important;
         }
+        /* Reel Filmstrip Horizontal untuk Sinematik 21:9 */
         body[data-layout="CINEMATIC_SHOWCASE"] .gal-grid {
             display: flex !important;
             flex-wrap: nowrap !important;
@@ -1126,38 +1127,25 @@
             padding: 0;
             border-radius: 50%;
             text-decoration: none;
-            color: #ffffff;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background: var(--am-paper);
+            color: var(--am-gold);
+            border: 1.5px solid var(--am-line);
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            box-shadow: var(--am-shadow);
         }
 
         .social-btn:hover {
             transform: translateY(-3px) scale(1.08);
+            border-color: var(--am-gold);
         }
 
-        .btn-ig {
-            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-        }
-
-        .btn-tiktok {
-            background: #141418;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn-wa {
-            background: #25D366;
-        }
-
+        .btn-ig,
+        .btn-tiktok,
+        .btn-wa,
         .btn-email {
-            background: #ea4335;
-        }
-
-        .btn-yt {
-            background: #FF0000;
-        }
-
-        .btn-fb {
-            background: #1877F2;
+            background: var(--am-paper);
+            color: var(--am-gold);
+            border: 1.5px solid var(--am-line);
         }
 
         /* ==========================================================================
@@ -1233,101 +1221,127 @@
         }
 
         /* ==========================================================================
-           HALAMAN GALERI PORTOFOLIO (SEMUANYA KOTAK SERAGAM, TANPA FOTO BESAR DI ATAS)
+           HALAMAN GALERI PORTOFOLIO (1 FOTO UTAMA DI ATAS + GRID FOTO)
            ========================================================================== */
         .featured-karya-hero {
-            display: none !important;
+            position: relative;
+            width: 100%;
+            height: 490px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: #141012;
+            border: 1.5px solid var(--am-line);
+            box-shadow: var(--am-shadow);
+            margin-bottom: 24px;
+            cursor: zoom-in;
+        }
+
+        .featured-karya-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            display: block;
+            transition: transform 0.4s ease;
+        }
+
+        .featured-karya-hero:hover img {
+            transform: scale(1.02);
+        }
+
+        .featured-karya-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 36px 24px 20px;
+            background: linear-gradient(to top, rgba(12, 10, 12, 0.9) 0%, rgba(12, 10, 12, 0.45) 60%, transparent 100%);
+            color: #ffffff;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .featured-karya-badge {
+            display: inline-block;
+            font-size: 10.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #e5c158;
+            margin-bottom: 4px;
+        }
+
+        .featured-karya-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: clamp(24px, 3.2vw, 34px);
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.15;
+        }
+
+        .featured-zoom-pill {
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 700;
         }
 
         .gal-grid {
-            display: grid !important;
-            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
-            gap: 16px !important;
-            margin-top: 8px;
-        }
-
-        @media (max-width: 640px) {
-            .gal-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 10px !important;
-            }
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+            gap: 18px;
         }
 
         figure.gal {
             background: var(--am-paper);
             border: 1.5px solid var(--am-line);
-            border-radius: 16px;
+            border-radius: 18px;
             overflow: hidden;
             cursor: pointer;
             box-shadow: var(--am-shadow);
-            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-            position: relative;
-            aspect-ratio: 1 / 1 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            width: 100% !important;
-            margin: 0 !important;
+            transition: transform 0.25s ease, border-color 0.25s ease;
         }
 
-        figure.gal:hover {
+        figure.gal:hover,
+        figure.gal.active-thumb {
             transform: translateY(-4px);
             border-color: var(--am-gold);
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
         }
 
         figure.gal img {
-            width: 100% !important;
-            height: 100% !important;
-            aspect-ratio: 1 / 1 !important;
-            object-fit: cover !important;
-            object-position: center center !important;
-            display: block !important;
-            transition: transform 0.4s ease;
-        }
-
-        figure.gal:hover img {
-            transform: scale(1.06);
+            width: 100%;
+            height: 290px;
+            object-fit: cover;
+            object-position: center center;
+            display: block;
         }
 
         figure.gal figcaption {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 24px 12px 10px;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.4) 65%, transparent 100%);
+            padding: 13px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 6px;
-            color: #ffffff;
-            pointer-events: none;
-            z-index: 2;
+            gap: 8px;
         }
 
         .g-name {
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-            font-size: 13px;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 18px;
             font-weight: 700;
-            color: #ffffff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+            color: var(--am-ink);
             line-height: 1.25;
         }
 
         .g-tag {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            color: #f7d58b;
-            background: rgba(0, 0, 0, 0.55);
-            padding: 2px 7px;
-            border-radius: 99px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            flex-shrink: 0;
-        }
+            font-size: 10.5px;
+            text-transform: uppercase;
             letter-spacing: 0.08em;
             color: var(--am-accent);
             font-weight: 700;
@@ -1633,9 +1647,11 @@
                         <div class="logo-clickable" style="width: 78px; height: 78px; border-radius: 50%; overflow: hidden; margin: 0 auto 14px; border: 2px solid rgba(255,255,255,0.65); background: #ffffff; box-shadow: 0 8px 24px rgba(0,0,0,0.28);" onclick="handleLogoClick(event)" title="Klik 3x untuk Portal Kru">
                             <img id="coverLogoImg" src="/logo-kafela.svg" alt="Logo" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                         </div>
-                      
+                        <div id="cinematicBadgeEl" class="cinematic-badge" style="display: none;">
+                            <span>🎬</span> <span>21:9 Widescreen Premiere Showcase</span>
+                        </div>
                         <p id="coverJenisEl" class="cover-eyebrow js-jenis-usaha" style="display: none;"></p>
-                        <h1 class="cover-title js-nama-brand"  style="margin-bottom: 8px;"></h1>
+                        <h1 class="cover-title js-nama-brand" style="margin-bottom: 8px;"></h1>
                         <p id="coverSubJudulEl" style="display: none; font-size: 12.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fbbf24; margin-bottom: 12px;"></p>
                         <p id="coverTaglineEl" style="display: none; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: clamp(19px, 2.4vw, 25px); color: #f6e3ba; margin: 0 auto 12px; max-width: 600px; line-height: 1.35;"></p>
                         <p id="coverBioEl" style="display: none; font-size: 13.5px; color: rgba(255,255,255,0.9); max-width: 560px; margin: 0 auto 20px; line-height: 1.65; white-space: pre-line;"></p>
@@ -1647,7 +1663,6 @@
                             <button type="button" class="btn-cover" onclick="navigasiKe(1, 'sectionKarya')">Lihat Portofolio &rarr;</button>
                             <button type="button" class="btn-cover" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);" onclick="navigasiKe(2, 'sectionLayanan')">Daftar Paket &rarr;</button>
                         </div>
-                        <div id="coverCustomLinksContainer" style="display: none; flex-direction: column; gap: 10px; margin-top: 16px; width: 100%; max-width: 480px; margin-left: auto; margin-right: auto;"></div>
                     </div>
                 </div>
             </section>
@@ -1668,7 +1683,19 @@
                         <button type="button" class="masonry-filter-pill" onclick="filterKaryaMasonry('DETAIL', this)">📸 Detail &amp; Dekor</button>
                     </div>
 
-                    <!-- GRID FOTO PORTOFOLIO (KOTAK SERAGAM, KLIK UNTUK GAMBAR UTUH) -->
+                    <!-- 1 FOTO UTAMA BESAR DI ATAS HALAMAN PORTOFOLIO -->
+                    <div id="featuredKaryaWrap" class="featured-karya-hero" onclick="bukaLightbox(featuredKaryaUrl, featuredKaryaTitle)">
+                        <img id="featuredKaryaImg" src="" alt="Foto Utama">
+                        <div class="featured-karya-caption">
+                            <div>
+                                <span class="featured-karya-badge">Foto Pilihan</span>
+                                <h3 id="featuredKaryaTitleEl" class="featured-karya-title">Koleksi Portofolio</h3>
+                            </div>
+                            <span class="featured-zoom-pill">&#128269; Perbesar</span>
+                        </div>
+                    </div>
+
+                    <!-- GRID FOTO PORTOFOLIO DI BAWAH FOTO BESAR -->
                     <div id="amGalleryGrid" class="gal-grid"></div>
 
                     <div style="text-align: center; margin-top: 28px;">
@@ -1755,7 +1782,13 @@
         <div class="hint" id="amHint" onclick="goToBookPage(bookIdx + 1)">Geser &rarr;</div>
 
         <!-- FLOATING BAR UNTUK MODE VERTIKAL (MOBILE FRIENDLY) -->
-
+        <div id="verticalFloatingBar" class="vertical-floating-bar">
+            <button type="button" class="btn-float-action btn-float-wa" onclick="bukaChatWA()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.498 14.382c-.328-.163-1.942-.958-2.242-1.067-.301-.11-.518-.163-.736.163-.217.327-.843 1.066-1.033 1.284-.191.217-.382.245-.708.082-.327-.163-1.378-.507-2.624-1.623-0.971-.865-1.627-1.933-1.817-2.26-.191-.327-.019-.504.144-.666.148-.147.327-.382.49-.572.164-.191.217-.327.327-.544.109-.218.054-.408-.027-.571-.082-.163-.736-1.774-.981-2.428-.242-.638-.492-.55-.674-.56-.174-.01-.373-.01-.572-.01-.199 0-.522.075-.795.367-.272.293-1.042 1.018-1.042 2.483 0 1.465 1.066 2.877 1.213 3.076.147.199 2.098 3.204 5.083 4.498 2.659 1.156 3.195 1.298 3.755 1.213 1.156-.163 3.755-1.533 4.283-3.013.528-1.48.528-2.75.366-3.013-.163-.263-.638-.408-1.213-.674z"/></svg>
+                <span>Konsultasi Bisnis</span>
+            </button>
+            <button type="button" id="btnFloatingBooking" class="btn-float-action btn-float-book" onclick="bukaFormBooking('', '')">Booking Sekarang &rarr;</button>
+        </div>
     </div>
 
     <!-- MODAL LIGHTBOX FULLSCREEN HD -->
@@ -1784,7 +1817,7 @@
     </div>
 
 <script type="module">
-    import { collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { collection, getDocs, getDoc, doc, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { db } from '/firebase-config.js'; 
 
     // =========================================================================
@@ -1837,7 +1870,18 @@
         }
         if (filtered.length === 0) filtered = window.listKaryaItems;
 
-        renderGaleriPortofolio(filtered);
+        amGal.innerHTML = filtered.map((item, idx) => {
+            const safeTitle = item.judul.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            return `
+                <figure class="gal" onclick="klikItemGaleri(${idx}, '${item.url}', '${safeTitle}')">
+                    <img src="${item.url}" alt="${safeTitle}">
+                    <figcaption>
+                        <div class="g-name">${item.judul}</div>
+                        <div class="g-tag">0${idx + 1}</div>
+                    </figcaption>
+                </figure>
+            `;
+        }).join('');
     };
 
     window.navigasiKe = function(pageIdx, sectionId) {
@@ -2195,6 +2239,45 @@
                     }
                 }
 
+                // Proteksi dan Batasan Kunjungan Harian Khusus Web Public Profil
+                if (!isPreviewMode && ownerUid) {
+                    const tier = String(data.paketAktif || 'Standar').toLowerCase();
+                    const limitsMap = {
+                        standar: 10,
+                        pro: 50,
+                        ultimate: 200
+                    };
+                    const maxVisits = limitsMap[tier] || 10;
+                    const lastReset = Number(data.lastResetDate) || 0;
+                    const now = Date.now();
+                    const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
+                    const currentVisits = isToday ? (Number(data.visitsToday) || 0) : 0;
+
+                    if (currentVisits >= maxVisits) {
+                        document.body.innerHTML = `
+                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:#0F172A; color:#F8FAFC; text-align:center; padding:20px; font-family:'Plus Jakarta Sans',sans-serif;">
+                                <div style="max-width:480px; background:#1E293B; padding:36px; border-radius:24px; border:1px solid #334155; box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+                                    <div style="font-size:42px; margin-bottom:16px;">⏱️</div>
+                                    <h2 style="color:#F43F5E; font-size:22px; font-weight:800; margin-bottom:10px;">Batas Kunjungan Harian Tercapai</h2>
+                                    <p style="font-size:14px; color:#94A3B8; line-height:1.6; margin-bottom:24px;">Website dan halaman portofolio <b>${data.namaBrand || 'Studio'}</b> telah mencapai batas kuota kunjungan publik harian untuk hari ini. Silakan kunjungi kembali besok atau hubungi kami melalui WhatsApp.</p>
+                                    ${data.noWhatsApp ? `<a href="https://wa.me/${data.noWhatsApp}" style="display:inline-block; padding:12px 24px; background:#25D366; color:white; border-radius:12px; text-decoration:none; font-weight:bold; font-size:14px; box-shadow:0 4px 12px rgba(37,211,102,0.3);">Chat WhatsApp Admin</a>` : ''}
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // Increment kuota kunjungan harian hanya untuk pengunjung web public profil
+                    try {
+                        await updateDoc(doc(db, "owners", ownerUid), {
+                            visitsToday: currentVisits + 1,
+                            lastResetDate: isToday ? lastReset : now
+                        });
+                    } catch (eVisitInc) {
+                        console.warn("Increment visits skipped:", eVisitInc);
+                    }
+                }
+
                 // Cek apakah halaman ini diminta sebagai Web Profil Ke-2
                 const isWeb2Requested = urlParams.get('web') === '2' || window.forceWeb2Mode === true;
                 if (isWeb2Requested && data.webProfil2 && data.webProfil2.aktif) {
@@ -2391,7 +2474,21 @@
             }
         }
 
- 
+        // Tombol CTA Kustom Tambahan (WhatsApp Konsultasi / Maps / Drive)
+// Tombol CTA Kustom Tambahan (WhatsApp Konsultasi / Maps / Drive)
+        const blockCustomCta = document.getElementById('blockCustomCta');
+        const btnCustomCta = document.getElementById('btnCustomCta');
+        const labelCustomCta = document.getElementById('labelCustomCta');
+        if (blockCustomCta && btnCustomCta && labelCustomCta) {
+            if (data.ctaLinkKustom && data.ctaLinkKustom.trim() !== '') {
+                btnCustomCta.href = data.ctaLinkKustom.trim();
+                labelCustomCta.innerText = data.ctaTeksKustom && data.ctaTeksKustom.trim() !== '' ? data.ctaTeksKustom.trim() : 'Buka Link';
+                blockCustomCta.style.display = 'block';
+            } else {
+                blockCustomCta.style.display = 'none';
+            }
+        }
+
         // Custom Label Tombol Booking
         const customBookingLabel = (data.teksTombolBooking || '').trim();
         if (customBookingLabel) {
@@ -2437,22 +2534,6 @@
             });
         }
 
-        // Tautan Kustom ala Linktree di bawah Lihat Portofolio & Daftar Paket
-        const customLinksWrap = document.getElementById('coverCustomLinksContainer');
-        if (customLinksWrap && Array.isArray(data.customLinks) && data.customLinks.length > 0) {
-            customLinksWrap.innerHTML = data.customLinks.map(link => {
-                if (!link || !link.title) return '';
-                const t = String(link.title).trim();
-                const u = String(link.url || '#').trim();
-                if (!t) return '';
-                return `<a href="${u}" target="_blank" rel="noopener noreferrer" style="display: block; width: 100%; padding: 13px 20px; border-radius: 12px; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.25); color: #ffffff; font-size: 14px; font-weight: 700; text-align: center; text-decoration: none; box-shadow: 0 4px 14px rgba(0,0,0,0.25); transition: transform 0.2s, background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.24)'; this.style.transform='translateY(-2px)'" onmouseleave="this.style.background='rgba(255,255,255,0.12)'; this.style.transform='translateY(0)'">${t} &rarr;</a>`;
-            }).join('');
-            customLinksWrap.style.display = 'flex';
-        } else if (customLinksWrap) {
-            customLinksWrap.innerHTML = '';
-            customLinksWrap.style.display = 'none';
-        }
-
         // Media Sosial & Kontak dengan Logo SVG Resmi (Hanya Logo Saja)
         const svgIg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>`;
         const svgTiktok = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -2466,8 +2547,6 @@
 </svg>
 `;
         const svgEmail = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>`;
-        const svgYt = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
-        const svgFb = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
 
         let htmlSosmed = "";
         if (data.linkIg && data.linkIg.trim() !== "") {
@@ -2479,16 +2558,6 @@
             let urlTiktok = data.linkTiktok.trim();
             if (!urlTiktok.startsWith('http')) urlTiktok = 'https://tiktok.com/@' + urlTiktok.replace('@', '');
             htmlSosmed += `<a href="${urlTiktok}" target="_blank" rel="noopener noreferrer" class="social-btn btn-tiktok" title="TikTok">${svgTiktok}</a>`;
-        }
-        if (data.linkYoutube && data.linkYoutube.trim() !== "") {
-            let urlYt = data.linkYoutube.trim();
-            if (!urlYt.startsWith('http')) urlYt = 'https://youtube.com/' + urlYt.replace('@', '');
-            htmlSosmed += `<a href="${urlYt}" target="_blank" rel="noopener noreferrer" class="social-btn btn-yt" title="YouTube">${svgYt}</a>`;
-        }
-        if (data.linkFacebook && data.linkFacebook.trim() !== "") {
-            let urlFb = data.linkFacebook.trim();
-            if (!urlFb.startsWith('http')) urlFb = 'https://facebook.com/' + urlFb;
-            htmlSosmed += `<a href="${urlFb}" target="_blank" rel="noopener noreferrer" class="social-btn btn-fb" title="Facebook">${svgFb}</a>`;
         }
         if (data.noWhatsApp && data.noWhatsApp.trim() !== "") {
             let cleanWa = data.noWhatsApp.replace(/[^0-9]/g, '');
@@ -2529,70 +2598,51 @@
             coverEl.src = sourceItems[0].url;
         }
 
-        // Tampilkan semua foto yang diunggah ke dalam galeri portofolio (kotak seragam)
-        listKaryaItems = sourceItems.map((item, idx) => ({
+        // Foto untuk Halaman Galeri: Ambil Foto 2 s/d 8 (atau Foto 1 jika baru 1 foto)
+        const karyaItems = sourceItems.length > 1 ? sourceItems.slice(1) : sourceItems;
+        listKaryaItems = karyaItems.map((item, idx) => ({
             url: item.url,
             judul: item.judul || `Portofolio ${String(idx + 1).padStart(2, '0')}`,
             kategori: jenisUsaha
         }));
-        window.listKaryaItems = listKaryaItems;
 
-        renderGaleriPortofolio(listKaryaItems);
+        pilihKaryaUtama(0);
 
         // Hapus splash screen setelah data dimuat
         const splash = document.getElementById('splashScreen');
         if (splash) splash.style.display = 'none';
     }
 
-    function renderGaleriPortofolio(items) {
+    window.pilihKaryaUtama = function(activeIdx) {
+        if (!listKaryaItems || listKaryaItems.length === 0) return;
+        const chosen = listKaryaItems[activeIdx] || listKaryaItems[0];
+        window.featuredKaryaUrl = chosen.url;
+        window.featuredKaryaTitle = chosen.judul;
+
+        // Set 1 Foto Utama di Atas Halaman Portofolio
+        document.getElementById('featuredKaryaImg').src = chosen.url;
+        document.getElementById('featuredKaryaTitleEl').innerText = chosen.judul;
+
+        // Render Grid Foto di Bawahnya
         const amGal = document.getElementById('amGalleryGrid');
-        if (!amGal) return;
-        if (!items || items.length === 0) {
-            amGal.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px 16px; color: var(--am-ink); opacity: 0.7; font-size: 14px;">Belum ada foto portofolio yang diunggah.</div>';
-            return;
-        }
-        amGal.innerHTML = items.map((item, idx) => {
-            const safeTitle = (item.judul || `Karya 0${idx + 1}`).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        amGal.innerHTML = listKaryaItems.map((item, idx) => {
+            const isActive = idx === activeIdx ? 'active-thumb' : '';
+            const safeTitle = item.judul.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             return `
-                <figure class="gal" onclick="bukaGambarUtuh('${item.url}', '${safeTitle}')" title="Klik untuk membuka gambar utuh">
-                    <img src="${item.url}" alt="${safeTitle}" loading="lazy">
+                <figure class="gal ${isActive}" onclick="klikItemGaleri(${idx}, '${item.url}', '${safeTitle}')">
+                    <img src="${item.url}" alt="${safeTitle}">
                     <figcaption>
-                        <div class="g-name">${item.judul || `Karya 0${idx + 1}`}</div>
+                        <div class="g-name">${item.judul}</div>
                         <div class="g-tag">0${idx + 1}</div>
                     </figcaption>
                 </figure>
             `;
         }).join('');
-    }
-    window.renderGaleriPortofolio = renderGaleriPortofolio;
+    };
 
-    function bukaGambarUtuh(url, title) {
-        if (!url) return;
-        const lbImg = document.getElementById('lightboxImg');
-        if (lbImg) lbImg.src = url;
-        const lbCap = document.getElementById('lightboxCaption');
-        if (lbCap) lbCap.innerText = title || '';
-        const lbModal = document.getElementById('lightboxModal');
-        if (lbModal) lbModal.classList.add('open');
-        document.body.style.overflow = 'hidden';
-    }
-    window.bukaGambarUtuh = bukaGambarUtuh;
-    window.bukaLightbox = bukaGambarUtuh;
-
-    function tutupLightbox() {
-        const lbModal = document.getElementById('lightboxModal');
-        if (lbModal) lbModal.classList.remove('open');
-        document.body.style.overflow = '';
-    }
-    window.tutupLightbox = tutupLightbox;
-
-    window.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') tutupLightbox();
-    });
-
-    window.pilihKaryaUtama = function() {};
     window.klikItemGaleri = function(idx, url, title) {
-        bukaGambarUtuh(url, title);
+        window.pilihKaryaUtama(idx);
+        window.bukaLightbox(url, title);
     };
 
     async function muatKatalogPaket(uid) {
@@ -2663,6 +2713,14 @@
         }
     }
 
+    window.bukaLightbox = function(url, captionText) {
+        document.getElementById('lightboxImg').src = url;
+        document.getElementById('lightboxCaption').innerText = captionText || '';
+        document.getElementById('lightboxModal').classList.add('open');
+    };
+    window.tutupLightbox = function() {
+        document.getElementById('lightboxModal').classList.remove('open');
+    };
 
     window.bukaChatWA = function() {
         let cleanWa = (window.ownerNoWa || '').replace(/[^0-9]/g, '');

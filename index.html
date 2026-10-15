@@ -46,32 +46,48 @@
           return;
         }
 
+        // 4. Deteksi Server Lokal & Development (npm run dev / localhost / IP lokal / Port dev):
+        // Jangan pernah me-redirect otomatis ke profil.html saat sedang menjalankan dev server!
         var host = window.location.hostname.toLowerCase();
-        var isLocal = host === 'localhost' || host === '127.0.0.1' || host.indexOf('.run.app') !== -1;
-        if (!isLocal) {
-          var sub = '';
-          if (host.indexOf('.web.app') !== -1) {
-            sub = host.split('.web.app')[0].split('.').pop();
-          } else if (host.indexOf('.firebaseapp.com') !== -1) {
-            sub = host.split('.firebaseapp.com')[0].split('.').pop();
-          } else if (host !== 'kflsagnd.web.app' && host !== 'kafilasuci3.web.app') {
-            sub = host.replace(/^www\./, '');
-          }
+        var port = window.location.port;
+        var isLocal =
+          port !== '' ||
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          host === '0.0.0.0' ||
+          host.indexOf('192.168.') === 0 ||
+          host.indexOf('10.') === 0 ||
+          host.indexOf('172.') === 0 ||
+          host.indexOf('.run.app') !== -1 ||
+          host.indexOf('.local') !== -1;
 
-          if (sub && sub !== 'kflsagnd' && sub !== 'kafilasuci3') {
-            if (path === 'b' || path === 'booking') {
-              window.location.replace('/booking.html?id=' + encodeURIComponent(sub) + extraQuery);
-              return;
-            }
-            // Jika pengunjung membuka root (/) atau /index.html, langsung buka PROFIL BRAND!
-            if (!path || path === 'index.html') {
-              window.location.replace('/profil.html?id=' + encodeURIComponent(sub) + extraQuery);
-              return;
-            }
+        if (isLocal) {
+          return;
+        }
+
+        // 5. Pengalihan khusus Domain Produksi (Custom Domain & Slug Brand di Firebase Hosting)
+        var sub = '';
+        if (host.indexOf('.web.app') !== -1) {
+          sub = host.split('.web.app')[0].split('.').pop();
+        } else if (host.indexOf('.firebaseapp.com') !== -1) {
+          sub = host.split('.firebaseapp.com')[0].split('.').pop();
+        } else if (host !== 'kflsagnd.web.app' && host !== 'kafilasuci3.web.app') {
+          sub = host.replace(/^www\./, '');
+        }
+
+        if (sub && sub !== 'kflsagnd' && sub !== 'kafilasuci3') {
+          if (path === 'b' || path === 'booking') {
+            window.location.replace('/booking.html?id=' + encodeURIComponent(sub) + extraQuery);
+            return;
+          }
+          // Jika pengunjung membuka root (/) atau /index.html di domain produksi, langsung buka PROFIL BRAND!
+          if (!path || path === 'index.html') {
+            window.location.replace('/profil.html?id=' + encodeURIComponent(sub) + extraQuery);
+            return;
           }
         }
 
-        // 5. Deteksi Rute Web Profil Brand Publik di domain utama: /:slug -> /profil.html?id=:slug
+        // 6. Deteksi Rute Web Profil Brand Publik di domain produksi: /:slug -> /profil.html?id=:slug
         if (path && path !== 'index.html' && path !== 'app' && path.indexOf('/') === -1 && path.indexOf('.') === -1) {
           window.location.replace('/profil.html?id=' + encodeURIComponent(path) + extraQuery);
           return;

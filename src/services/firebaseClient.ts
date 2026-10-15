@@ -30,8 +30,10 @@ import {
   FirebaseCustomConfig,
   JadwalFotografi,
   OwnerProfile,
+  PaketLanggananTier,
   PaketLayanan,
   RekeningModel,
+  TopUpRequest,
   UserRoleType,
 } from '../types/kafela';
 import {
@@ -40,8 +42,8 @@ import {
   idKeEmailSistem,
   waKeEmailSistem,
 } from '../utils/formatters';
-import { getLimits } from '../utils/subscription';
 import { saveMedia } from './localDb';
+import { getLimits } from '../utils/subscription';
 
 const STORAGE_KEY_FB_CONFIG = 'KAFELA_FIREBASE_CONFIG_V1';
 
@@ -107,6 +109,7 @@ export function listenFirebaseAuthState(
       targetOwnerId: string;
       role: UserRoleType;
       displayName: string;
+      email?: string | null;
     } | null
   ) => void
 ): () => void {
@@ -123,13 +126,14 @@ export function listenFirebaseAuthState(
     }
     try {
       const resolved = await resolveUserRoleFromFirestore(fb.db, user.uid, user);
-      callback(resolved);
+      callback({ ...resolved, email: user.email });
     } catch {
       callback({
         uid: user.uid,
         targetOwnerId: user.uid,
         role: 'owner',
         displayName: user.displayName || user.email || 'Owner',
+        email: user.email,
       });
     }
   });
@@ -146,6 +150,7 @@ export async function loginFirebaseWithWA(
   targetOwnerId: string;
   role: UserRoleType;
   displayName: string;
+  email?: string | null;
 }> {
   const fb = initKafelaFirebase();
   if (!fb) {
@@ -157,7 +162,8 @@ export async function loginFirebaseWithWA(
   const cred = await signInWithEmailAndPassword(fb.auth, emailSistem, password);
   const userUid = cred.user.uid;
 
-  return await resolveUserRoleFromFirestore(fb.db, userUid, cred.user);
+  const resolved = await resolveUserRoleFromFirestore(fb.db, userUid, cred.user);
+  return { ...resolved, email: cred.user.email };
 }
 
 /**
@@ -168,6 +174,7 @@ export async function loginFirebaseWithGoogle(): Promise<{
   targetOwnerId: string;
   role: UserRoleType;
   displayName: string;
+  email?: string | null;
 }> {
   const fb = initKafelaFirebase();
   if (!fb) {
@@ -203,6 +210,7 @@ export async function loginFirebaseWithGoogle(): Promise<{
     targetOwnerId: user.uid,
     role: 'owner',
     displayName: user.displayName || 'Owner',
+    email: user.email,
   };
 }
 
@@ -219,6 +227,7 @@ export async function signupFirebaseWithWA(
   targetOwnerId: string;
   role: UserRoleType;
   displayName: string;
+  email?: string | null;
 }> {
   const fb = initKafelaFirebase();
   if (!fb) {
@@ -263,6 +272,7 @@ export async function signupFirebaseWithWA(
     targetOwnerId: uid,
     role: 'owner',
     displayName: namaOwner,
+    email: cred.user.email,
   };
 }
 
@@ -865,36 +875,34 @@ export async function saveOwnerProfileToFirebase(
     cleanUpdates.username = cleanUpdates.username.trim().replace(/\s+/g, '');
   }
 
-  // Simpan foto galeri ke sub-koleksi galeri_web dan pertahankan di dokumen utama untuk performa & offline
+  // Simpan foto galeri ke sub-koleksi galeri_web dan hapus dari dokumen utama
   if (Array.isArray(updates.portofolioWeb)) {
     const rawPhotos = updates.portofolioWeb.slice(0, 8);
     const rawCaptions = Array.isArray(updates.portofolioCaptions)
       ? updates.portofolioCaptions.slice(0, 8)
       : [];
     
-    cleanUpdates.portofolioWeb = rawPhotos;
-    cleanUpdates.portofolioCaptions = rawCaptions;
-
-    // Sinkronkan ke sub-koleksi galeri_web untuk kompatibilitas
+    // Simpan ke sub-koleksi galeri_web
     for (let idx = 0; idx < 8; idx++) {
       const u = (rawPhotos[idx] || '').trim();
       const cap = (rawCaptions[idx] || '').trim();
       const slotId = `PORTO_${idx + 1}`;
       
-      try {
-        if (u !== '') {
-          await setDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId), {
-            url: u,
-            caption: cap,
-            urutan: idx + 1,
-          });
-        } else {
+      if (u !== '') {
+        await setDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId), {
+          url: u,
+          caption: cap,
+        });
+      } else {
+        // Hapus slot jika kosong
+        try {
           await deleteDoc(doc(fb.db, 'owners', targetOwnerId, 'galeri_web', slotId));
-        }
-      } catch (eSlot) {
-        console.warn('Gagal sinkron slot galeri_web:', slotId, eSlot);
+        } catch {}
       }
     }
+    // Hapus field lama dari dokumen utama
+    delete cleanUpdates.portofolioWeb;
+    delete cleanUpdates.portofolioCaptions;
   }
 
   await setDoc(doc(fb.db, 'owners', targetOwnerId), cleanUpdates, { merge: true });
@@ -999,42 +1007,32 @@ export async function checkAndIncrementActions(
   targetOwnerId: string,
   paketAktif: string
 ): Promise<boolean> {
-  try {
-    const fb = initKafelaFirebase();
-    if (!fb || !targetOwnerId) return true; // Fail-safe: jika firebase gagal atau offline/demo, tetap izinkan
+  const fb = initKafelaFirebase();
+  if (!fb) return false;
 
-    const ownerRef = doc(fb.db, 'owners', targetOwnerId);
-    const snap = await getDoc(ownerRef);
-    if (!snap.exists()) return true;
-    
-    const data = snap.data();
-    const limits = getLimits(paketAktif || data.paketAktif || 'Standar');
-    if (!limits || limits.maxDailyActions === undefined) return true;
-    
-    const lastReset = (data.lastResetDate as number) || 0;
-    const now = Date.now();
-    const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
-    
-    let currentActions = isToday ? ((data.actionsToday as number) || 0) : 0;
-    
-    if (limits.maxDailyActions > 0 && currentActions >= limits.maxDailyActions) {
-      return false;
-    }
-    
-    try {
-      await updateDoc(ownerRef, {
-        actionsToday: currentActions + 1,
-        lastResetDate: isToday ? lastReset : now,
-      });
-    } catch (updateErr) {
-      console.warn('Gagal mengupdate actionsToday di Firestore:', updateErr);
-    }
-    
-    return true;
-  } catch (err) {
-    console.warn('Error saat memeriksa limit aktivitas harian:', err);
-    return true; // Fail-safe agar aksi pengguna tidak terblokir saat terjadi kendala jaringan/ekstensi browser
+  const ownerRef = doc(fb.db, 'owners', targetOwnerId);
+  const snap = await getDoc(ownerRef);
+  if (!snap.exists()) return false;
+  
+  const data = snap.data();
+  const limits = getLimits(paketAktif);
+  
+  const lastReset = data.lastResetDate as number || 0;
+  const now = Date.now();
+  const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
+  
+  let currentActions = isToday ? (data.actionsToday as number || 0) : 0;
+  
+  if (currentActions >= limits.maxDailyActions) {
+    return false;
   }
+  
+  await updateDoc(ownerRef, {
+    actionsToday: currentActions + 1,
+    lastResetDate: isToday ? lastReset : now
+  });
+  
+  return true;
 }
 
 /**
@@ -1045,42 +1043,32 @@ export async function checkAndIncrementVisits(
   targetOwnerId: string,
   paketAktif: string
 ): Promise<boolean> {
-  try {
-    const fb = initKafelaFirebase();
-    if (!fb || !targetOwnerId) return true; // Fail-safe: jika firebase gagal, tetap izinkan
+  const fb = initKafelaFirebase();
+  if (!fb) return true; // Fail-safe: jika firebase gagal, tetap izinkan
 
-    const ownerRef = doc(fb.db, 'owners', targetOwnerId);
-    const snap = await getDoc(ownerRef);
-    if (!snap.exists()) return true;
-    
-    const data = snap.data();
-    const limits = getLimits(paketAktif || data.paketAktif || 'Standar');
-    if (!limits || limits.maxDailyVisits === undefined) return true;
-    
-    const lastReset = (data.lastResetDate as number) || 0;
-    const now = Date.now();
-    const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
-    
-    let currentVisits = isToday ? ((data.visitsToday as number) || 0) : 0;
-    
-    if (limits.maxDailyVisits > 0 && currentVisits >= limits.maxDailyVisits) {
-      return false;
-    }
-    
-    try {
-      await updateDoc(ownerRef, {
-        visitsToday: currentVisits + 1,
-        lastResetDate: isToday ? lastReset : now,
-      });
-    } catch (updateErr) {
-      console.warn('Gagal mengupdate visitsToday di Firestore:', updateErr);
-    }
-    
-    return true;
-  } catch (err) {
-    console.warn('Error saat memeriksa limit kunjungan:', err);
-    return true; // Fail-safe
+  const ownerRef = doc(fb.db, 'owners', targetOwnerId);
+  const snap = await getDoc(ownerRef);
+  if (!snap.exists()) return true;
+  
+  const data = snap.data();
+  const limits = getLimits(paketAktif);
+  
+  const lastReset = data.lastResetDate as number || 0;
+  const now = Date.now();
+  const isToday = new Date(lastReset).toDateString() === new Date(now).toDateString();
+  
+  let currentVisits = isToday ? (data.visitsToday as number || 0) : 0;
+  
+  if (currentVisits >= limits.maxDailyVisits) {
+    return false;
   }
+  
+  await updateDoc(ownerRef, {
+    visitsToday: currentVisits + 1,
+    lastResetDate: isToday ? lastReset : now
+  });
+  
+  return true;
 }
 
 export async function deleteTimFromFirebase(
@@ -1879,6 +1867,168 @@ export async function syncAllBrandsToFirebase(
     }
   }
   return { total: brands.length, successCount: count };
+}
+
+/**
+ * Top-Up & Saldo Management
+ */
+export async function submitTopUpRequest(req: TopUpRequest): Promise<{ success: boolean; error?: string }> {
+  const init = initKafelaFirebase();
+  try {
+    if (init) {
+      await setDoc(doc(init.db, 'topup_requests', req.id), req);
+    }
+    const localKey = 'KAFELA_TOPUP_REQUESTS_V1';
+    const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
+    existing.unshift(req);
+    localStorage.setItem(localKey, JSON.stringify(existing));
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+}
+
+export async function fetchTopUpRequests(): Promise<TopUpRequest[]> {
+  const init = initKafelaFirebase();
+  let list: TopUpRequest[] = [];
+  try {
+    if (init) {
+      const snap = await getDocs(collection(init.db, 'topup_requests'));
+      snap.forEach((d) => {
+        list.push(d.data() as TopUpRequest);
+      });
+    }
+  } catch (e) {
+    console.warn("Fetch topup requests from firebase:", e);
+  }
+  if (list.length === 0) {
+    try {
+      const localKey = 'KAFELA_TOPUP_REQUESTS_V1';
+      list = JSON.parse(localStorage.getItem(localKey) || '[]');
+    } catch {}
+  }
+  return list.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function updateTopUpStatus(
+  reqId: string,
+  status: 'APPROVED' | 'REJECTED',
+  ownerUid?: string,
+  amount?: number
+): Promise<{ success: boolean; error?: string }> {
+  const init = initKafelaFirebase();
+  try {
+    if (init) {
+      await updateDoc(doc(init.db, 'topup_requests', reqId), { status });
+      if (status === 'APPROVED' && ownerUid && amount) {
+        const ownerRef = doc(init.db, 'owners', ownerUid);
+        const ownerSnap = await getDoc(ownerRef);
+        if (ownerSnap.exists()) {
+          const ownerData = ownerSnap.data() as OwnerProfile;
+          const currentSaldo = ownerData.saldo || 0;
+          await updateDoc(ownerRef, { saldo: currentSaldo + amount });
+        }
+      }
+    }
+    const localKey = 'KAFELA_TOPUP_REQUESTS_V1';
+    let existing: TopUpRequest[] = JSON.parse(localStorage.getItem(localKey) || '[]');
+    existing = existing.map((r) => (r.id === reqId ? { ...r, status } : r));
+    localStorage.setItem(localKey, JSON.stringify(existing));
+
+    if (status === 'APPROVED' && ownerUid && amount) {
+      const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+      if (ownersLocal[ownerUid]) {
+        ownersLocal[ownerUid].saldo = (ownersLocal[ownerUid].saldo || 0) + amount;
+        localStorage.setItem('KAFELA_OWNERS_CACHE_V1', JSON.stringify(ownersLocal));
+      }
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
+}
+
+export async function renewSubscriptionWithSaldo(
+  ownerUid: string,
+  brandSlug: string,
+  tier: PaketLanggananTier,
+  durationDays: number,
+  price: number
+): Promise<{ success: boolean; error?: string }> {
+  const init = initKafelaFirebase();
+  try {
+    const ownerRef = init ? doc(init.db, 'owners', ownerUid) : null;
+    let ownerData: OwnerProfile | null = null;
+
+    if (init && ownerRef) {
+      const snap = await getDoc(ownerRef);
+      if (snap.exists()) ownerData = snap.data() as OwnerProfile;
+    }
+
+    if (!ownerData) {
+      const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+      ownerData = ownersLocal[ownerUid] || null;
+    }
+
+    if (!ownerData) return { success: false, error: 'Data owner tidak ditemukan' };
+
+    const currentSaldo = ownerData.saldo || 0;
+    if (currentSaldo < price) {
+      return { success: false, error: `Saldo tidak mencukupi (Saldo Anda: Rp ${currentSaldo.toLocaleString()}, Diperlukan: Rp ${price.toLocaleString()})` };
+    }
+
+    const newSaldo = currentSaldo - price;
+    const now = Date.now();
+    const currentExpired = ownerData.tanggalLangganan || now;
+    const baseTime = Math.max(currentExpired, now);
+    const newExpired = baseTime + durationDays * 24 * 60 * 60 * 1000;
+    const maxJadwal = tier === 'Ultimate' ? 99999 : tier === 'Pro' ? 300 : 75;
+
+    if (init && ownerRef) {
+      await updateDoc(ownerRef, {
+        saldo: newSaldo,
+        paketAktif: tier,
+        tanggalLangganan: newExpired,
+      });
+    }
+
+    if (init && brandSlug) {
+      try {
+        const brandRef = doc(init.db, 'brands_registry', brandSlug);
+        await updateDoc(brandRef, {
+          tier,
+          expiredAt: newExpired,
+          maxJadwal,
+          status: 'AKTIF',
+        });
+      } catch (e) {
+        console.warn('Update brand registry on renew:', e);
+      }
+    }
+
+    ownerData.saldo = newSaldo;
+    ownerData.paketAktif = tier;
+    ownerData.tanggalLangganan = newExpired;
+    const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+    ownersLocal[ownerUid] = ownerData;
+    localStorage.setItem('KAFELA_OWNERS_CACHE_V1', JSON.stringify(ownersLocal));
+
+    const brandsCached = JSON.parse(localStorage.getItem('KAFELA_BRANDS_REGISTRY_V1') || '[]');
+    const updatedBrands = brandsCached.map((b: any) =>
+      b.ownerId === ownerUid || b.slug === brandSlug
+        ? { ...b, tier, expiredAt: newExpired, maxJadwal, status: 'AKTIF' }
+        : b
+    );
+    localStorage.setItem('KAFELA_BRANDS_REGISTRY_V1', JSON.stringify(updatedBrands));
+
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg };
+  }
 }
 
 

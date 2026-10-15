@@ -28,13 +28,15 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { BrandRegistryItem, BrandStatusType, PaketLanggananTier } from '../types/kafela';
+import { BrandRegistryItem, BrandStatusType, PaketLanggananTier, TopUpRequest } from '../types/kafela';
 import {
   deleteBrandRegistryFromFirebase,
   fetchBrandsRegistryFromFirebase,
+  fetchTopUpRequests,
   getLocalCachedBrands,
   saveBrandRegistryToFirebase,
   syncAllBrandsToFirebase,
+  updateTopUpStatus,
 } from '../services/firebaseClient';
 import { formatTanggalIndo } from '../utils/formatters';
 import { getLimits } from '../utils/subscription';
@@ -58,8 +60,11 @@ export function SuperAdminDashboard({
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
 
-  // Data Direktori Brand
+  // Data Direktori Brand & Top-Ups
   const [brands, setBrands] = useState<BrandRegistryItem[]>(() => getLocalCachedBrands());
+  const [activeAdminTab, setActiveAdminTab] = useState<'BRANDS' | 'TOPUPS'>('BRANDS');
+  const [topUpRequests, setTopUpRequests] = useState<TopUpRequest[]>([]);
+  const [selectedProofImg, setSelectedProofImg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterTier, setFilterTier] = useState<string>('ALL');
@@ -105,10 +110,38 @@ export function SuperAdminDashboard({
     try {
       const data = await fetchBrandsRegistryFromFirebase();
       setBrands(data);
+      const topUps = await fetchTopUpRequests();
+      setTopUpRequests(topUps);
     } catch (err) {
       console.warn('Gagal memuat brands dari remote, memakai cache:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleApproveTopUp = async (req: TopUpRequest) => {
+    if (!confirm(`Setujui top-up saldo sebesar Rp ${req.amount.toLocaleString()} untuk "${req.brandName}"? Saldo owner akan bertambah.`)) return;
+    setIsLoading(true);
+    const res = await updateTopUpStatus(req.id, 'APPROVED', req.ownerUid, req.amount);
+    setIsLoading(false);
+    if (res.success) {
+      showToast(`Top-up Rp ${req.amount.toLocaleString()} berhasil disetujui & ditambahkan ke saldo!`);
+      loadBrandsData();
+    } else {
+      alert(res.error || 'Gagal menyetujui top-up.');
+    }
+  };
+
+  const handleRejectTopUp = async (req: TopUpRequest) => {
+    if (!confirm(`Tolak top-up saldo dari "${req.brandName}"?`)) return;
+    setIsLoading(true);
+    const res = await updateTopUpStatus(req.id, 'REJECTED');
+    setIsLoading(false);
+    if (res.success) {
+      showToast('Top-up ditolak.');
+      loadBrandsData();
+    } else {
+      alert(res.error || 'Gagal menolak top-up.');
     }
   };
 
@@ -466,8 +499,109 @@ export function SuperAdminDashboard({
 
       {/* MAIN VIEWPORT */}
       <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto space-y-6">
-        {/* STATS STRIP: 4 Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Tab Switcher: Direktori Brand vs Verifikasi Top-Up */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveAdminTab('BRANDS')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              activeAdminTab === 'BRANDS' ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white'
+            }`}
+          >
+            🏢 Direktori Brand Klien ({brands.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveAdminTab('TOPUPS')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer relative ${
+              activeAdminTab === 'TOPUPS' ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white'
+            }`}
+          >
+            💳 Verifikasi Top-Up Saldo 
+            {topUpRequests.filter(r => r.status === 'PENDING').length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold animate-pulse">
+                {topUpRequests.filter(r => r.status === 'PENDING').length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeAdminTab === 'TOPUPS' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white">Verifikasi Top-Up Saldo Klien (Bukti Transfer)</h3>
+                <p className="text-xs text-slate-400">Setujui permintaan top-up setelah mengecek bukti transfer untuk otomatis menambah saldo klien.</p>
+              </div>
+              <button
+                type="button"
+                onClick={loadBrandsData}
+                className="px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> <span>Muat Ulang</span>
+              </button>
+            </div>
+
+            {topUpRequests.length === 0 ? (
+              <div className="rounded-2xl bg-slate-900 border border-slate-800 p-8 text-center text-slate-400 text-xs">
+                Belum ada permintaan top-up saldo dari klien.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topUpRequests.map((req) => (
+                  <div key={req.id} className="rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-white">{req.brandName}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          req.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                          req.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                          'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}>
+                          {req.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">Owner: <strong className="text-slate-200">{req.ownerName}</strong></p>
+                      <p className="text-xs text-slate-400">Waktu: <strong className="text-slate-200">{new Date(req.createdAt).toLocaleString('id-ID')}</strong></p>
+                      <p className="text-sm font-mono font-extrabold text-amber-400">Nominal: Rp {req.amount.toLocaleString()}</p>
+
+                      {req.buktiTransferUrl && (
+                        <div className="relative rounded-lg overflow-hidden h-36 bg-slate-950 border border-slate-800 cursor-pointer" onClick={() => setSelectedProofImg(req.buktiTransferUrl)}>
+                          <img src={req.buktiTransferUrl} alt="Bukti TF" className="w-full h-full object-contain" />
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity text-white text-xs font-bold">
+                            🔍 Perbesar Bukti TF
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {req.status === 'PENDING' && (
+                      <div className="flex gap-2 pt-2 border-t border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => handleRejectTopUp(req)}
+                          className="flex-1 py-2 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold border border-rose-500/30 cursor-pointer"
+                        >
+                          Tolak
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveTopUp(req)}
+                          className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-md"
+                        >
+                          ✓ Setujui (+ Saldo)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* STATS STRIP: 4 Metric Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-colors">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-slate-400">Total Klien / Brand</span>
@@ -783,6 +917,8 @@ export function SuperAdminDashboard({
             </table>
           </div>
         </div>
+      </>
+      )}
       </main>
 
       {/* =====================================================================
@@ -1095,6 +1231,21 @@ export function SuperAdminDashboard({
                   </span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX BUKTI TRANSFER */}
+      {selectedProofImg && (
+        <div className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSelectedProofImg(null)}>
+          <div className="relative max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h4 className="text-sm font-bold text-white">Bukti Transfer Top-Up</h4>
+              <button type="button" onClick={() => setSelectedProofImg(null)} className="text-slate-400 hover:text-white text-sm cursor-pointer">&times; Tutup</button>
+            </div>
+            <div className="rounded-xl overflow-hidden max-h-[75vh] bg-slate-950 flex items-center justify-center">
+              <img src={selectedProofImg} alt="Bukti Transfer" className="max-w-full max-h-[70vh] object-contain" />
             </div>
           </div>
         </div>

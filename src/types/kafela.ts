@@ -148,6 +148,7 @@ export interface OwnerProfile {
   uid: string;
   namaOwner: string;
   namaBrand: string;
+  saldo?: number;
   noWhatsApp: string;
   email?: string;
   jenisUsaha: string;
@@ -178,7 +179,6 @@ export interface OwnerProfile {
   teksTombolBooking?: string;
   isWebsiteActive?: boolean;
   isBookingActive?: boolean;
-  customLinks?: { title: string; url: string }[];
   webProfil2?: WebProfilSekunder;
   templateWaTagihan: string;
   templateWaKonfirmasi: string;
@@ -266,3 +266,14 @@ export const DAFTAR_JENIS_USAHA = [
   'Sound System & Musik',
   'Umum / Standar',
 ];
+
+export interface TopUpRequest {
+  id: string;
+  ownerUid: string;
+  ownerName: string;
+  brandName: string;
+  amount: number;
+  buktiTransferUrl: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: number;
+}

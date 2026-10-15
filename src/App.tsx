@@ -76,7 +76,6 @@ import {
   saveTimToFirebase,
   subscribeLiveJadwalUltimate,
   initKafelaFirebase,
-  checkAndIncrementVisits,
 } from './services/firebaseClient';
 import { doc, getDoc } from 'firebase/firestore';
 import {
@@ -155,18 +154,6 @@ export default function App() {
     return null;
   });
 
-  const [isVisitAllowed, setIsVisitAllowed] = useState<boolean | null>(null);
-
-  if (isVisitAllowed === false) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 p-6 text-center">
-        <div>
-          <h1 className="text-2xl font-bold text-rose-400 mb-2">Akses Terbatas</h1>
-          <p>Batas kunjungan harian Anda telah tercapai. Silakan coba lagi besok.</p>
-        </div>
-      </div>
-    );
-  }
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [pengaturanSubTab, setPengaturanSubTab] = useState<PengaturanSubTab>(() => {
     try {
@@ -216,18 +203,6 @@ export default function App() {
     return 'demo-owner-kafela-001';
   });
 
-  useEffect(() => {
-    async function checkVisits() {
-      // Menggunakan 'Pro' sebagai contoh paket, nanti bisa disesuaikan dengan data owner asli
-      const allowed = await checkAndIncrementVisits(targetOwnerId, 'Pro');
-      setIsVisitAllowed(allowed);
-    }
-    if (targetOwnerId && targetOwnerId !== 'demo-owner-kafela-001') {
-      checkVisits();
-    } else {
-      setIsVisitAllowed(true);
-    }
-  }, []); // Changed dependency to []
   const [userRole, setUserRole] = useState<UserRoleType>(() => {
     try {
       const raw = localStorage.getItem(LOCAL_CACHE_KEY);
@@ -245,6 +220,13 @@ export default function App() {
     } catch {}
     return 'Iqbal Saefinnuha';
   });
+  const [activeUserEmail, setActiveUserEmail] = useState<string>(() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+      if (raw) return JSON.parse(raw).activeUserEmail || '';
+    } catch {}
+    return '';
+  });
 
   // Data Utama Workspace (Disimpan di RAM + LocalStorage Cache agar 0 Read saat pindah menu)
   const initialDemo = useMemo(() => generateDemoWorkspace('FOTO'), []);
@@ -260,7 +242,16 @@ export default function App() {
       const raw = localStorage.getItem(LOCAL_CACHE_KEY);
       if (raw) return JSON.parse(raw).rekening || initialDemo.rekening;
     } catch {}
-    return initialDemo.rekening;
+    return {
+      bankUtama: 'BRI',
+      rekUtama: '4108 0100 8396 530',
+      namaUtama: 'Iqbal saefin nuha',
+      bankAlternatif: 'DANA',
+      rekAlternatif: '0858-9026-1536',
+      namaAlternatif: 'Suci K Kusumah',
+      linkPembayaran: '',
+      catatanRekening: '',
+    };
   });
   const [paketList, setPaketList] = useState<PaketLayanan[]>(() => {
     try {
@@ -328,7 +319,18 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
     const host = window.location.hostname.toLowerCase();
-    const isLocal = host === 'localhost' || host === '127.0.0.1' || host.includes('.run.app');
+    const port = window.location.port;
+    const isLocal =
+      import.meta.env.DEV ||
+      port !== '' ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.startsWith('172.') ||
+      host.includes('.run.app') ||
+      host.endsWith('.local');
 
     let sub = '';
     if (!isLocal) {
@@ -773,6 +775,7 @@ export default function App() {
           targetOwnerId,
           userRole,
           activeUserName,
+          activeUserEmail,
           cachedAt: existingCachedAt,
           owner,
           rekening,
@@ -783,7 +786,7 @@ export default function App() {
         })
       );
     } catch {}
-  }, [sessionMode, targetOwnerId, userRole, activeUserName, owner, rekening, paketList, jadwalAktif, jadwalArsip, timList]);
+  }, [sessionMode, targetOwnerId, userRole, activeUserName, activeUserEmail, owner, rekening, paketList, jadwalAktif, jadwalArsip, timList]);
 
   // Live Sync Otomatis khusus Paket Ultimate (pada mode Firebase Asli)
   useEffect(() => {
@@ -853,12 +856,14 @@ export default function App() {
       targetOwnerId: string;
       role: UserRoleType;
       displayName: string;
+      email?: string | null;
     },
     isAutoReload = false
   ) => {
     setTargetOwnerId(fbSession.targetOwnerId);
     setUserRole(fbSession.role);
     setActiveUserName(fbSession.displayName);
+    setActiveUserEmail(fbSession.email || '');
     setSessionMode('FIREBASE');
 
     // Cek Role Super Admin di koleksi 'users' ATAU 'owners'
@@ -1566,13 +1571,13 @@ export default function App() {
   const renderSidebarNav = (isDrawer: boolean) => (
     <div className="flex flex-col h-full select-none">
       {/* Header Drawer / Sidebar Mengikuti Warna Tema Studio */}
-      <div className="p-5 shrink-0" style={navBackgroundComputed}>
+      <div className="p-3 shrink-0" style={navBackgroundComputed}>
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="font-bold text-white truncate max-w-[200px]" style={{ fontSize: '20px' }}>
+            <h2 className="  px-3 font-bold text-white truncate max-w-[200px]" style={{ fontSize: '20px' }}>
               {owner.namaBrand || "Kafela's Agenda"}
             </h2>
-            <p className="mt-0.5 text-xs text-white/80 truncate max-w-[200px]">
+            <p className=" px-3 mt-0.5 text-xs text-white/80 truncate max-w-[200px]">
               {owner.jenisUsaha || "Manajemen Jadwal & Kasir"}
             </p>
           </div>
@@ -1588,8 +1593,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="mt-2.5 space-y-1 bg-black/20 p-2.5 rounded-xl border border-white/10">
-          <p className="text-[11px] text-slate-300">Masuk sebagai:</p>
+        <div className="mt-1 space-y-1 bg-black/20 p-2.5 rounded-xl border border-white/10">
           <div className="flex items-center justify-between">
             <span className="font-extrabold text-sm text-white flex items-center gap-1.5">
               👤 {activeUserName}
@@ -1598,6 +1602,9 @@ export default function App() {
               {userRole === 'owner' ? 'Owner' : userRole === 'admin' ? 'Admin' : 'Crew'}
             </span>
           </div>
+          {activeUserEmail && (
+            <p className="text-[10px] text-slate-400 font-mono truncate pt-0">{activeUserEmail}</p>
+          )}
         </div>
 
         {/* Card Status Paket (Disembunyikan untuk Anggota / Crew) */}
@@ -1605,34 +1612,42 @@ export default function App() {
           <div
             role="button"
             tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isDrawer) setDrawerOpen(false);
-              setLanggananModalOpen(true);
-            }}
-            className="mt-3.5 rounded-[12px] p-3 border border-white/20 cursor-pointer hover:border-amber-400 hover:bg-white/10 active:scale-[0.98] transition-all shadow-md group relative"
+         onClick={(e) => {
+e.stopPropagation();
+setPengaturanSubTab('PAKET');
+setActiveTab('PENGATURAN');
+if (isDrawer) setDrawerOpen(false);
+}}
+            className="mt-1 rounded-[12px] px-3 py-1.5 border border-white/20 cursor-pointer hover:border-amber-400 hover:bg-white/10 active:scale-[0.98] transition-all shadow-md group relative"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
             title="Klik untuk lihat pilihan paket & perpanjang langganan"
           >
-            <div className="flex items-center justify-between">
-              <span className="font-bold flex items-center gap-1.5" style={{ fontSize: '12px', color: '#2ECC71' }}>
-                PAKET AKTIF: {owner.paketAktif.toUpperCase()}
-              </span>
-              <span
-                className="font-bold px-2 py-0.5 rounded text-white"
-                style={{ fontSize: '10px', backgroundColor: '#F39C12' }}
-              >
-                AKTIF
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-center justify-between text-xs">
-              <span style={{ fontSize: '11px', color: '#ECF0F1' }}>
-                Masa aktif: Sisa {sisaHariLangganan} Hari
-              </span>
-              <span className="text-[10px] font-black text-amber-300 group-hover:text-amber-200 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/40">
-                Perpanjang Paket →
-              </span>
-            </div>
+<div className="flex items-center justify-between gap-3">
+  {/* Kiri: Sisa Hari & Nama Paket */}
+  <div className="flex flex-col gap-1 min-w-0">
+    <span className="text-[11px] text-gray-200 whitespace-nowrap">
+      Sisa {sisaHariLangganan} Hari
+    </span>
+
+    <span
+      className="font-bold truncate"
+      style={{ fontSize: '12px', color: '#2ECC71' }}
+    >
+      {owner.paketAktif.toUpperCase()}
+    </span>
+  </div>
+
+  {/* Kanan: Saldo & Tombol Kelola */}
+  <div className="flex flex-col items-end gap-1">
+    <span className="text-[11px] text-gray-200 whitespace-nowrap">
+      Rp {(owner.saldo || 0).toLocaleString('id-ID')}
+    </span>
+
+    <span className="shrink-0 text-[10px] font-bold text-amber-300 group-hover:text-amber-200 bg-amber-500/20 px-2 py-1 rounded border border-amber-400/40 whitespace-nowrap">
+      Kelola Saldo & Paket →
+    </span>
+  </div>
+</div>
           </div>
         )}
       </div>
@@ -1833,24 +1848,6 @@ export default function App() {
               <span>Template WhatsApp</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setPengaturanSubTab('PAKET');
-                setActiveTab('PENGATURAN');
-                if (isDrawer) setDrawerOpen(false);
-                bumpCacheHit();
-              }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold transition-all cursor-pointer ${
-                activeTab === 'PENGATURAN' && pengaturanSubTab === 'PAKET'
-                  ? 'text-white'
-                  : 'text-[#DDDDDD] hover:bg-white/5'
-              }`}
-              style={getNavActiveItemStyle(activeTab === 'PENGATURAN' && pengaturanSubTab === 'PAKET')}
-            >
-              <Layers className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Paket Pro </span>
-            </button>
 
             <button
               type="button"
@@ -3199,23 +3196,7 @@ export default function App() {
 
    
 
-      {/* ===================================================================== */}
-      {/* FLOATING ACTION BUTTON (+) PERSIS fabTambah DI activity_main.xml      */}
-      {/* ===================================================================== */}
-      {!isKruAnggota && (
-        <button
-          type="button"
-          onClick={() => setFabChoiceOpen(true)}
-          className={`fixed ${
-            isMobileLayout ? 'bottom-20 right-4' : 'bottom-6 right-6'
-          } z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl border border-white/20 hover:scale-105 transition-transform cursor-pointer`}
-          style={{ backgroundColor: navThemeColor, color: '#FFFFFF' }}
-          title="Tambah Jadwal / Kasir Cepat"
-        >
-          <Plus className="w-7 h-7" />
-        </button>
-      )}
-
+ 
       {/* ===================================================================== */}
       {/* POPUP MENU AKSI JADWAL PERSIS dialog_aksi_jadwal.xml APK ANDROID      */}
       {/* ===================================================================== */}

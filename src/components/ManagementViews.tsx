@@ -33,10 +33,10 @@ import {
   PaketLanggananTier,
   PaketLayanan,
   RekeningModel,
+  TopUpRequest,
   UserRoleType,
   WebLayoutType,
 } from '../types/kafela';
-import { checkAndIncrementActions } from '../services/firebaseClient';
 import {
   bersihkanSlugBrand,
   bersihkanTitik,
@@ -47,6 +47,7 @@ import {
   keRupiah,
 } from '../utils/formatters';
 import { ProfessionPresetKey } from '../services/demoDataSeeder';
+import { checkAndIncrementActions, renewSubscriptionWithSaldo, submitTopUpRequest } from '../services/firebaseClient';
 
 /* ============================================================================
  * 1. LAPORAN KEUANGAN & PIUTANG VIEW (Persis LaporanActivity.kt — 0 Read!)
@@ -1321,6 +1322,11 @@ export const PengaturanStudioView: React.FC<{
   onOpenSignatureModal,
 }) => {
   const [subTab, setSubTab] = useState<PengaturanSubTab>(initialSubTab);
+  const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
+  const [topUpNominal, setTopUpNominal] = useState('');
+  const [topUpBukti, setTopUpBukti] = useState('');
+  const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
+  const [durasiPaketStudio, setDurasiPaketStudio] = useState<'BULANAN' | 'TAHUNAN'>('BULANAN');
 
   React.useEffect(() => {
     setSubTab(initialSubTab);
@@ -1367,8 +1373,6 @@ export const PengaturanStudioView: React.FC<{
   const [openSectionSosmed, setOpenSectionSosmed] = useState<boolean>(false);
   const [openSectionUpload, setOpenSectionUpload] = useState<boolean>(false);
   const [openSectionWeb2, setOpenSectionWeb2] = useState<boolean>(false);
-  const [openSectionCustomLinks, setOpenSectionCustomLinks] = useState<boolean>(false);
-  const [customLinks, setCustomLinks] = useState<{ title: string; url: string }[]>(owner.customLinks || []);
 
   // Website Profil Ke-2 (Sub-Brand / Spesialisasi)
   const [web2Aktif, setWeb2Aktif] = useState(owner.webProfil2?.aktif || false);
@@ -1454,109 +1458,97 @@ export const PengaturanStudioView: React.FC<{
     maxDim: number,
     maxChars: number
   ): Promise<string> =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       if (!rawDataUrl || !rawDataUrl.startsWith('data:image/')) {
         resolve(rawDataUrl);
         return;
       }
-      const safetyTimeout = setTimeout(() => resolve(rawDataUrl), 3500);
-      try {
-        const img = new Image();
-        img.onload = () => {
-          clearTimeout(safetyTimeout);
-          try {
-            let targetW = img.width;
-            let targetH = img.height;
-            if (targetW > maxDim || targetH > maxDim) {
-              if (targetW > targetH) {
-                targetH = Math.round((targetH * maxDim) / targetW);
-                targetW = maxDim;
-              } else {
-                targetW = Math.round((targetW * maxDim) / targetH);
-                targetH = maxDim;
-              }
-            }
-
-            // MULTI-STEP PROGRESSIVE DOWNSCALING
-            let curCanvas = document.createElement('canvas');
-            let curW = img.width;
-            let curH = img.height;
-            curCanvas.width = curW;
-            curCanvas.height = curH;
-            const curCtx = curCanvas.getContext('2d');
-            if (!curCtx) {
-              resolve(rawDataUrl);
-              return;
-            }
-            curCtx.imageSmoothingEnabled = true;
-            curCtx.imageSmoothingQuality = 'high';
-            curCtx.drawImage(img, 0, 0, curW, curH);
-
-            while (curW * 0.5 > targetW && curH * 0.5 > targetH) {
-              const nextW = Math.max(targetW, Math.round(curW * 0.5));
-              const nextH = Math.max(targetH, Math.round(curH * 0.5));
-              const stepCanvas = document.createElement('canvas');
-              stepCanvas.width = nextW;
-              stepCanvas.height = nextH;
-              const stepCtx = stepCanvas.getContext('2d');
-              if (!stepCtx) break;
-              stepCtx.imageSmoothingEnabled = true;
-              stepCtx.imageSmoothingQuality = 'high';
-              stepCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
-              curCanvas = stepCanvas;
-              curW = nextW;
-              curH = nextH;
-            }
-
-            let finalCanvas = document.createElement('canvas');
-            finalCanvas.width = targetW;
-            finalCanvas.height = targetH;
-            const finalCtx = finalCanvas.getContext('2d');
-            if (!finalCtx) {
-              resolve(rawDataUrl);
-              return;
-            }
-            finalCtx.imageSmoothingEnabled = true;
-            finalCtx.imageSmoothingQuality = 'high';
-            finalCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
-
-            let q = 0.84;
-            let resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
-            while (resultDataUrl.length > maxChars && q > 0.58) {
-              q -= 0.06;
-              resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
-            }
-
-            while (resultDataUrl.length > maxChars && targetW > 640) {
-              targetW = Math.round(targetW * 0.85);
-              targetH = Math.round(targetH * 0.85);
-              const smaller = document.createElement('canvas');
-              smaller.width = targetW;
-              smaller.height = targetH;
-              const sCtx = smaller.getContext('2d');
-              if (!sCtx) break;
-              sCtx.imageSmoothingEnabled = true;
-              sCtx.imageSmoothingQuality = 'high';
-              sCtx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height, 0, 0, targetW, targetH);
-              finalCanvas = smaller;
-              resultDataUrl = finalCanvas.toDataURL('image/jpeg', 0.76);
-            }
-
-            resolve(resultDataUrl);
-          } catch (e) {
-            console.warn('Gagal kompresi canvas, menggunakan foto asli:', e);
-            resolve(rawDataUrl);
+      const img = new Image();
+      img.onload = () => {
+        let targetW = img.width;
+        let targetH = img.height;
+        if (targetW > maxDim || targetH > maxDim) {
+          if (targetW > targetH) {
+            targetH = Math.round((targetH * maxDim) / targetW);
+            targetW = maxDim;
+          } else {
+            targetW = Math.round((targetW * maxDim) / targetH);
+            targetH = maxDim;
           }
-        };
-        img.onerror = () => {
-          clearTimeout(safetyTimeout);
-          resolve(rawDataUrl);
-        };
-        img.src = rawDataUrl;
-      } catch (e) {
-        clearTimeout(safetyTimeout);
-        resolve(rawDataUrl);
-      }
+        }
+
+        // MULTI-STEP PROGRESSIVE DOWNSCALING (Halving 50% bertahap agar tajam & anti-pecah)
+        let curCanvas = document.createElement('canvas');
+        let curW = img.width;
+        let curH = img.height;
+        curCanvas.width = curW;
+        curCanvas.height = curH;
+        const curCtx = curCanvas.getContext('2d');
+        if (!curCtx) {
+          reject(new Error('Canvas context gagal'));
+          return;
+        }
+        curCtx.imageSmoothingEnabled = true;
+        curCtx.imageSmoothingQuality = 'high';
+        curCtx.drawImage(img, 0, 0, curW, curH);
+
+        while (curW * 0.5 > targetW && curH * 0.5 > targetH) {
+          const nextW = Math.max(targetW, Math.round(curW * 0.5));
+          const nextH = Math.max(targetH, Math.round(curH * 0.5));
+          const stepCanvas = document.createElement('canvas');
+          stepCanvas.width = nextW;
+          stepCanvas.height = nextH;
+          const stepCtx = stepCanvas.getContext('2d');
+          if (!stepCtx) break;
+          stepCtx.imageSmoothingEnabled = true;
+          stepCtx.imageSmoothingQuality = 'high';
+          stepCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, nextW, nextH);
+          curCanvas = stepCanvas;
+          curW = nextW;
+          curH = nextH;
+        }
+
+        let finalCanvas = document.createElement('canvas');
+        finalCanvas.width = targetW;
+        finalCanvas.height = targetH;
+        const finalCtx = finalCanvas.getContext('2d');
+        if (!finalCtx) {
+          reject(new Error('Canvas context gagal'));
+          return;
+        }
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+        finalCtx.drawImage(curCanvas, 0, 0, curW, curH, 0, 0, targetW, targetH);
+
+        // Pastikan setiap foto <= maxChars (~95.000 karakter = ~70 KB)
+        // supaya 8 foto sekaligus (~560 KB) 100% muat di bawah batas 1MB Firestore tanpa pernah gagal simpan!
+        let q = 0.84;
+        let resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
+        while (resultDataUrl.length > maxChars && q > 0.58) {
+          q -= 0.06;
+          resultDataUrl = finalCanvas.toDataURL('image/jpeg', q);
+        }
+
+        // Jika masih di atas budget, turunkan dimensi 15% secara halus
+        while (resultDataUrl.length > maxChars && targetW > 640) {
+          targetW = Math.round(targetW * 0.85);
+          targetH = Math.round(targetH * 0.85);
+          const smaller = document.createElement('canvas');
+          smaller.width = targetW;
+          smaller.height = targetH;
+          const sCtx = smaller.getContext('2d');
+          if (!sCtx) break;
+          sCtx.imageSmoothingEnabled = true;
+          sCtx.imageSmoothingQuality = 'high';
+          sCtx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height, 0, 0, targetW, targetH);
+          finalCanvas = smaller;
+          resultDataUrl = finalCanvas.toDataURL('image/jpeg', 0.76);
+        }
+
+        resolve(resultDataUrl);
+      };
+      img.onerror = reject;
+      img.src = rawDataUrl;
     });
 
   const compressGalleryImage = (file: File, maxDim: number): Promise<string> =>
@@ -1646,9 +1638,6 @@ export const PengaturanStudioView: React.FC<{
           layoutWeb,
           linkIg,
           linkTiktok,
-              linkYoutube,
-    linkFacebook,
-
           lokasi1,
           lokasi2,
           lokasi3,
@@ -1660,8 +1649,6 @@ export const PengaturanStudioView: React.FC<{
           ctaTeksKustom,
           ctaLinkKustom,
           teksTombolBooking,
-              customLinks,
-
           isWebsiteActive: true,
         };
         sessionStorage.setItem('current_owner_preview_draft', JSON.stringify(draft));
@@ -1855,8 +1842,8 @@ export const PengaturanStudioView: React.FC<{
 
       {/* 2. TAB PENGATURAN WEBSITE PRIBADI & LINK BOOKING */}
       {subTab === 'WEB' && (
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4 text-xs">
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <div className="rounded-xl bg-slate-900 border border-slate-800 p-2 space-y-4 text-xs">
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-0 px-4">
             <Globe className="w-4 h-4 text-purple-400" />
             <div>
               <h3 className="text-sm font-bold text-white">
@@ -2236,73 +2223,6 @@ export const PengaturanStudioView: React.FC<{
               </div>
             )}
           </div>
-
-          {/* TAUTAN KUSTOM ALA LINKTREE */}
-          <div className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setOpenSectionCustomLinks(!openSectionCustomLinks)}
-              className="w-full flex items-center justify-between p-3.5 text-left font-bold text-white text-xs hover:bg-slate-900/50 cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <span>🌳</span>
-                <span>Kolom Tautan Kustom  ({customLinks.length})</span>
-              </div>
-              <span className="text-slate-400 text-xs px-2 py-0.5 rounded bg-slate-950 border border-slate-700">
-                {openSectionCustomLinks ? '▲' : '▼'}
-              </span>
-            </button>
-            {openSectionCustomLinks && (
-              <div className="p-4 pt-0 space-y-3 border-t border-slate-800/80">
-                <p className="text-[11px] text-slate-400 pt-3">
-                  Tambahkan kolom tautan (Linktree) di bawah tombol portofolio dan paket pada halaman sampul profil publik Anda.
-                </p>
-                {customLinks.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                    <div className="flex-1 space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Judul Tautan (Cth: Katalog PDF / Promo Lebaran)"
-                        value={item.title}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomLinks(prev => prev.map((l, i) => i === idx ? { ...l, title: val } : l));
-                        }}
-                        className="w-full rounded bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="URL Tujuan (Cth: https://wa.me/... atau Google Drive)"
-                        value={item.url}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomLinks(prev => prev.map((l, i) => i === idx ? { ...l, url: val } : l));
-                        }}
-                        className="w-full rounded bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setCustomLinks(prev => prev.filter((_, i) => i !== idx))}
-                      className="p-2 rounded bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 cursor-pointer"
-                      title="Hapus Tautan"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setCustomLinks(prev => [...prev, { title: '', url: '' }])}
-                  className="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-dashed border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Kolom Tautan Baru</span>
-                </button>
-              </div>
-            )}
-          </div>
-
           <button
             type="button"
             disabled={isSavingToast}
@@ -2321,7 +2241,6 @@ export const PengaturanStudioView: React.FC<{
                   lokasi1: lokasi1.trim(),
                   lokasi2: lokasi2.trim(),
                   lokasi3: lokasi3.trim(),
-                  customLinks: customLinks.filter(l => l.title.trim() !== ''),
                 },
                 'Website & Link berhasil disimpan!'
               )
@@ -3138,120 +3057,88 @@ export const PengaturanStudioView: React.FC<{
             type="button"
             disabled={isSavingToast}
             onClick={async () => {
-              if (isSavingToast) return;
-              try {
-                setIsSavingToast(true);
-                setSavedBanner('Memproses foto & menyimpan identitas website...');
-
-                const validPhotos: string[] = [];
-                const validCaptions: string[] = [];
-                for (let i = 0; i < 8; i++) {
-                  const u = (portoPhotos[i] || '').trim();
-                  if (u) {
-                    try {
-                      const safePhoto =
-                        u.startsWith('data:image/') && u.length > 98000
-                          ? await compressDataUrlToBudget(u, 1280, 95000)
-                          : u;
-                      validPhotos.push(safePhoto);
-                    } catch {
-                      validPhotos.push(u);
-                    }
-                    validCaptions.push((portoCaptions[i] || '').trim());
-                  }
+              const validPhotos: string[] = [];
+              const validCaptions: string[] = [];
+              for (let i = 0; i < 8; i++) {
+                const u = (portoPhotos[i] || '').trim();
+                if (u) {
+                  // Pastikan foto lama yang ukurannya terlalu besar otomatis di-fit <= 95KB sebelum dikirim ke Firestore
+                  const safePhoto =
+                    u.startsWith('data:image/') && u.length > 98000
+                      ? await compressDataUrlToBudget(u, 1280, 95000)
+                      : u;
+                  validPhotos.push(safePhoto);
+                  validCaptions.push((portoCaptions[i] || '').trim());
                 }
-
-                // Fit foto Web 2
-                const validWeb2Photos: string[] = [];
-                const validWeb2Captions: string[] = [];
-                for (let i = 0; i < 6; i++) {
-                  const u2 = (web2PortoPhotos[i] || '').trim();
-                  if (u2) {
-                    try {
-                      const safePhoto2 =
-                        u2.startsWith('data:image/') && u2.length > 98000
-                          ? await compressDataUrlToBudget(u2, 1280, 95000)
-                          : u2;
-                      validWeb2Photos.push(safePhoto2);
-                    } catch {
-                      validWeb2Photos.push(u2);
-                    }
-                    validWeb2Captions.push((web2PortoCaptions[i] || '').trim());
-                  }
-                }
-
-                let safeLogo = logoWeb || '/logo-kafela.svg';
-                if (logoWeb && logoWeb.startsWith('data:image/') && logoWeb.length > 48000) {
-                  try {
-                    safeLogo = await compressDataUrlToBudget(logoWeb, 500, 45000);
-                  } catch {
-                    safeLogo = logoWeb;
-                  }
-                }
-
-                // Rate limit check jika ada
-                if (owner.uid) {
-                  try {
-                    const isAllowed = await checkAndIncrementActions(owner.uid, owner.paketAktif);
-                    if (!isAllowed) {
-                      setSavedBanner('Perhatian: Batas aktivitas harian paket tercapai, namun perubahan tetap disimpan secara lokal.');
-                    }
-                  } catch (eLimit) {
-                    console.warn('Rate limit bypass:', eLimit);
-                  }
-                }
-
-                await handleSaveOwnerWithToast(
-                  {
-                    username: (usernameWeb || 'studio').trim().toLowerCase().replace(/\s+/g, ''),
-                    taglineWeb,
-                    bioWeb,
-                    linkIg,
-                    linkTiktok,
-                    linkYoutube,
-                    linkFacebook,
-
-                    lokasi1,
-                    lokasi2,
-                    lokasi3,
-                    logoBrandUrl: safeLogo,
-                    portofolioWeb: validPhotos,
-                    portofolioCaptions: validCaptions,
-                    temaWeb,
-                    layoutWeb,
-                    pesanPenutupWeb,
-                    jamOperasionalWeb,
-                    ctaTeksKustom,
-                    ctaLinkKustom,
-                    teksTombolBooking,
-                    customLinks,
-
-                    isWebsiteActive,
-                    isBookingActive,
-                    webProfil2: {
-                      aktif: web2Aktif,
-                      subJudul: (web2SubJudul || '').trim(),
-                      usernameSlug: (web2Slug || 'sub-brand').trim().toLowerCase().replace(/\s+/g, ''),
-                      taglineWeb: web2Tagline,
-                      bioWeb: web2Bio,
-                      temaWeb: web2Tema,
-                      layoutWeb: web2Layout,
-                      linkBookingKhusus: (web2LinkBookingKhusus || '').trim(),
-                      portofolioWeb: validWeb2Photos,
-                      portofolioCaptions: validWeb2Captions,
-                      pesanPenutupWeb,
-                    },
-                  },
-                  'Pengaturan Website, Layout, Penutup & Web Ke-2 berhasil disimpan ke server!'
-                );
-              } catch (err) {
-                console.error('Gagal menyimpan identitas website:', err);
-                setIsSavingToast(false);
-                setSavedBanner('Terjadi kesalahan saat memproses data. Silakan coba kembali.');
-                setTimeout(() => setSavedBanner(null), 4000);
               }
+
+              // Fit foto Web 2
+              const validWeb2Photos: string[] = [];
+              const validWeb2Captions: string[] = [];
+              for (let i = 0; i < 6; i++) {
+                const u2 = (web2PortoPhotos[i] || '').trim();
+                if (u2) {
+                  const safePhoto2 =
+                    u2.startsWith('data:image/') && u2.length > 98000
+                      ? await compressDataUrlToBudget(u2, 1280, 95000)
+                      : u2;
+                  validWeb2Photos.push(safePhoto2);
+                  validWeb2Captions.push((web2PortoCaptions[i] || '').trim());
+                }
+              }
+
+              const safeLogo =
+                logoWeb && logoWeb.startsWith('data:image/') && logoWeb.length > 48000
+                  ? await compressDataUrlToBudget(logoWeb, 500, 45000)
+                  : logoWeb || '/logo-kafela.svg';
+
+              // Check rate limit
+              const isAllowed = await checkAndIncrementActions(owner.uid, owner.paketAktif);
+              if (!isAllowed) {
+                alert("Batas aktivitas harian tercapai. Silakan coba lagi besok.");
+                return;
+              }
+
+              handleSaveOwnerWithToast(
+                {
+                  username: usernameWeb.trim().toLowerCase().replace(/\s+/g, ''),
+                  taglineWeb,
+                  bioWeb,
+                  linkIg,
+                  linkTiktok,
+                  lokasi1,
+                  lokasi2,
+                  lokasi3,
+                  logoBrandUrl: safeLogo,
+                  portofolioWeb: validPhotos,
+                  portofolioCaptions: validCaptions,
+                  temaWeb,
+                  layoutWeb,
+                  pesanPenutupWeb,
+                  jamOperasionalWeb,
+                  ctaTeksKustom,
+                  ctaLinkKustom,
+                  teksTombolBooking,
+                  isWebsiteActive,
+                  isBookingActive,
+                  webProfil2: {
+                    aktif: web2Aktif,
+                    subJudul: web2SubJudul.trim(),
+                    usernameSlug: web2Slug.trim().toLowerCase().replace(/\s+/g, ''),
+                    taglineWeb: web2Tagline,
+                    bioWeb: web2Bio,
+                    temaWeb: web2Tema,
+                    layoutWeb: web2Layout,
+                    linkBookingKhusus: web2LinkBookingKhusus.trim(),
+                    portofolioWeb: validWeb2Photos,
+                    portofolioCaptions: validWeb2Captions,
+                    pesanPenutupWeb,
+                  },
+                },
+                'Pengaturan Website, Layout, Penutup & Web Ke-2 berhasil disimpan ke server!'
+              );
             }}
-            className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.99] disabled:opacity-60 text-white font-extrabold shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
+            className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-extrabold shadow-lg cursor-pointer flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" />
             <span>
@@ -3443,16 +3330,48 @@ export const PengaturanStudioView: React.FC<{
         </div>
       )}
 
-      {/* 5. TAB INFO PAKET LANGGANAN (TERKUNCI AMAN - USER TIDAK BISA UBAH SENDIRI) */}
+      {/* 5. TAB INFO PAKET LANGGANAN & SALDO AKUN */}
       {subTab === 'PAKET' && (
-        <div className="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4 text-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div className="rounded-xltext-xs">
+          {/* SALDO AKUN BANNER */}
+<div className="rounded-xl bg-slate-950 border border-amber-500/30 p-3 shadow-lg">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    {/* Informasi Saldo */}
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-base">
+        💳
+      </div>
+
+      <div>
+        <p className="text-slate-400 text-[11px]">
+          Saldo Akun
+        </p>
+
+        <p className="text-xl font-mono font-extrabold text-amber-400">
+          Rp {(owner.saldo || 0).toLocaleString("id-ID")}
+        </p>
+      </div>
+    </div>
+
+    {/* Tombol Top-Up */}
+    <button
+      type="button"
+      onClick={() => setIsTopUpModalOpen(true)}
+      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
+    >
+      <span>+</span>
+      <span>Top-Up Saldo</span>
+    </button>
+  </div>
+</div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2 pt-2">
             <div>
               <h2 className="text-base font-bold text-white">
-                Informasi Paket Langganan Kafela&apos;s Agenda
+                Pilih &amp; Perpanjang Paket Langganan
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Paket Aktif Anda Saat Ini:{' '}
+                Paket Aktif Saat Ini:{' '}
                 <span className="text-emerald-400 font-bold uppercase">
                   {owner.paketAktif} (Sisa {sisaHari} Hari)
                 </span>
@@ -3461,18 +3380,18 @@ export const PengaturanStudioView: React.FC<{
             <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
               <button
                 type="button"
-                onClick={() => setDurasiLangganan('BULANAN')}
+                onClick={() => setDurasiPaketStudio('BULANAN')}
                 className={`px-3 py-1 rounded font-semibold cursor-pointer ${
-                  durasiLangganan === 'BULANAN' ? 'bg-slate-800 text-white' : 'text-slate-400'
+                  durasiPaketStudio === 'BULANAN' ? 'bg-slate-800 text-white' : 'text-slate-400'
                 }`}
               >
                 Bulanan (30 Hari)
               </button>
               <button
                 type="button"
-                onClick={() => setDurasiLangganan('TAHUNAN')}
-                className={`px-3 py-1 rounded font-semibold cursor-pointer ${
-                  durasiLangganan === 'TAHUNAN' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                onClick={() => setDurasiPaketStudio('TAHUNAN')}
+                className={`px-3 py-2 rounded font-semibold cursor-pointer ${
+                  durasiPaketStudio === 'TAHUNAN' ? 'bg-emerald-600 text-white' : 'text-slate-400'
                 }`}
               >
                 Tahunan (Hemat 20%)
@@ -3480,33 +3399,36 @@ export const PengaturanStudioView: React.FC<{
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
             {(
               [
                 {
                   tier: 'Starter',
                   title: 'Paket Starter (Standar)',
-                  price: durasiLangganan === 'TAHUNAN' ? 'Rp 158.400 / thn' : 'Rp 16.500 / bln',
+                  priceVal: durasiPaketStudio === 'TAHUNAN' ? 158400 : 16500,
+                  days: durasiPaketStudio === 'TAHUNAN' ? 365 : 30,
+                  price: durasiPaketStudio === 'TAHUNAN' ? 'Rp 158.400 / thn' : 'Rp 16.500 / bln',
                   desc: '1 Owner (0 Admin, 0 Crew) • Maks 100 Jadwal/Bulan • Khusus Aplikasi HP',
                 },
                 {
                   tier: 'Pro',
                   title: 'Paket Pro (Terlaris)',
-                  price: durasiLangganan === 'TAHUNAN' ? 'Rp 432.000 / thn' : 'Rp 45.000 / bln',
-                  desc: '1 Owner & 1 Admin (0 Crew) • Maks 300 Jadwal/Bulan • Akses Kasir PC & HP • Link Website Pribadi',
+                  priceVal: durasiPaketStudio === 'TAHUNAN' ? 432000 : 45000,
+                  days: durasiPaketStudio === 'TAHUNAN' ? 365 : 30,
+                  price: durasiPaketStudio === 'TAHUNAN' ? 'Rp 432.000 / thn' : 'Rp 45.000 / bln',
+                  desc: '1 Owner & 1 Admin (0 Crew) • Maks 300 Jadwal/Bulan • Akses Kasir PC • Link Website Pribadi',
                 },
                 {
                   tier: 'Ultimate',
                   title: 'Paket Ultimate',
-                  price: durasiLangganan === 'TAHUNAN' ? 'Rp 1.334.400 / thn' : 'Rp 139.000 / bln',
-                  desc: '1 Owner, 2 Admin & 10 Crew • Jadwal Unlimited • Kasir PC Live Sync Real-time • Fitur Tim Lengkap',
+                  priceVal: durasiPaketStudio === 'TAHUNAN' ? 1334400 : 139000,
+                  days: durasiPaketStudio === 'TAHUNAN' ? 365 : 30,
+                  price: durasiPaketStudio === 'TAHUNAN' ? 'Rp 1.334.400 / thn' : 'Rp 139.000 / bln',
+                  desc: '1 Owner, 2 Admin & 10 Crew • Jadwal Unlimited • Kasir PC Live Sync • Fitur Tim Lengkap',
                 },
-              ] as { tier: PaketLanggananTier; title: string; price: string; desc: string }[]
+              ] as { tier: PaketLanggananTier; title: string; priceVal: number; days: number; price: string; desc: string }[]
             ).map((p) => {
               const active = owner.paketAktif.toLowerCase() === p.tier.toLowerCase();
-              const pesanUpgrade = `Halo Admin Kafela's Agenda, saya *${owner.namaOwner}* dari *${owner.namaBrand}* ingin melakukan Perpanjangan / Upgrade ke *${p.title} (${durasiLangganan})*. Mohon info pembayarannya.`;
-              const waAdminUrl = `https://api.whatsapp.com/send?phone=6283132304649&text=${encodeURIComponent(pesanUpgrade)}`;
-
               return (
                 <div
                   key={p.tier}
@@ -3521,23 +3443,39 @@ export const PengaturanStudioView: React.FC<{
                       <span className="font-bold text-sm text-white">{p.title}</span>
                       <span className="font-mono font-bold text-emerald-400">{p.price}</span>
                     </div>
-                    <p className="text-slate-400 mt-2 leading-relaxed">{p.desc}</p>
+                    <p className="text-slate-400 mt-1 leading-relaxed">{p.desc}</p>
                   </div>
-                  <div className="mt-4 pt-2.5 border-t border-slate-800/80">
-                    {active ? (
-                      <span className="block text-center py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 text-[11px] font-bold">
-                        ✓ Paket Aktif Anda Saat Ini
-                      </span>
-                    ) : (
-                      <a
-                        href={waAdminUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-center py-1.5 rounded-lg bg-[#2980B9] hover:bg-[#2471A3] text-white text-[11px] font-bold transition-colors"
-                      >
-                        Pilih / Upgrade Paket
-                      </a>
-                    )}
+                  <div className="mt-1 pt-2.5 border-t border-slate-800/80">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const currentSaldo = owner.saldo || 0;
+                        if (currentSaldo < p.priceVal) {
+                          alert(`Saldo Anda tidak mencukupi (Rp ${currentSaldo.toLocaleString()}). Diperlukan Rp ${p.priceVal.toLocaleString()}. Silakan Top-Up Saldo terlebih dahulu.`);
+                          setIsTopUpModalOpen(true);
+                          return;
+                        }
+                        if (!confirm(`Konfirmasi Perpanjang/Upgrade ke ${p.title} (${durasiLangganan}) seharga ${p.price} menggunakan Saldo Akun?`)) return;
+
+                        setIsSavingToast(true);
+                        setSavedBanner('Memproses perpanjangan dengan saldo...');
+                        const res = await renewSubscriptionWithSaldo(owner.uid, owner.username || owner.uid, p.tier, p.days, p.priceVal);
+                        setIsSavingToast(false);
+                        if (res.success) {
+                          notifySaved(`Berhasil memperpanjang paket ${p.tier}! Saldo telah dipotong.`);
+                          onUpdateOwner({ paketAktif: p.tier, saldo: currentSaldo - p.priceVal });
+                        } else {
+                          alert(res.error || 'Gagal memperpanjang paket.');
+                        }
+                      }}
+                      className={`w-full py-2 rounded-lg font-bold text-[11px] cursor-pointer transition-colors ${
+                        active
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          : 'bg-sky-600 hover:bg-sky-500 text-white'
+                      }`}
+                    >
+                      {active ? `✓ Perpanjang Paket Ini (${p.price})` : `Pilih & Aktifkan (${p.price})`}
+                    </button>
                   </div>
                 </div>
               );
@@ -3545,6 +3483,257 @@ export const PengaturanStudioView: React.FC<{
           </div>
         </div>
       )}
+
+       {/* MODAL TOP-UP SALDO DENGAN BUKTI TRANSFER */}
+      {isTopUpModalOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 p-1 mt-2 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsTopUpModalOpen(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="topup-title"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl"
+          >
+            {/* HEADER */}
+            <div className="mb-1 flex items-center justify-between border-b border-slate-800 pb-1">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-lg">
+                  💳
+                </div>
+                <div>
+                  <h3
+                    id="topup-title"
+                    className="text-sm font-bold text-white"
+                  >
+                    Top-Up Saldo
+                  </h3>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Isi saldo dengan transfer manual
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Tutup modal"
+                onClick={() => setIsTopUpModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-xl text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              {/* INFORMASI PEMBAYARAN */}
+              <div className="space-y-2 rounded-xl border border-amber-500/20 bg-slate-950 py-2 px-4">
+            
+                <p className="leading-relaxed text-slate-400">
+                  Transfer sesuai nominal top-up ke salah satu rekening resmi berikut.
+                </p>
+
+                {/* BRI */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Bank BRI
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText("410801008396530");
+                      }}
+                      className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
+                    >
+                      Salin rekening
+                    </button>
+                  </div>
+
+                  <p className="break-all font-mono text-sm font-bold text-amber-400">
+                    4108 0100 8396 530
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-300">
+                    a.n. Iqbal S Nuha
+                  </p>
+                </div>
+
+                {/* DANA */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      DANA
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText("085890261536");
+                      }}
+                      className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
+                    >
+                      Salin nomor
+                    </button>
+                  </div>
+
+                  <p className="font-mono text-sm font-bold text-amber-400">
+                    085890261536
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-300">
+                    a.n. Suci S Kusumah
+                  </p>
+                </div>
+
+                <p className="text-[10px] leading-relaxed text-slate-500">
+                  Pastikan nomor rekening dan nama penerima benar.
+                </p>
+              </div>
+
+{/* INPUT NOMINAL */}
+<div className="space-y-3 px-3">
+  <div className="flex items-center gap-3">
+    <label
+      htmlFor="topup-nominal"
+      className="shrink-0 font-semibold text-slate-200"
+    >
+      Nominal Top-Up
+    </label>
+
+    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 transition focus-within:border-amber-500">
+      <span className="shrink-0 font-bold text-slate-400">
+        Rp
+      </span>
+
+      <input
+        id="topup-nominal"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="Contoh: 50000"
+        value={topUpNominal}
+        onChange={(e) => {
+          setTopUpNominal(e.target.value.replace(/\D/g, ""));
+        }}
+        className="min-w-0 flex-1 bg-transparent py-3 font-mono text-sm font-bold text-white outline-none placeholder:font-normal placeholder:text-slate-600"
+      />
+    </div>
+  </div>
+             
+
+                {/* PILIHAN NOMINAL */}
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold  tracking-wider text-slate-500">
+                    Pilih nominal cepat - minimal top-up Rp. 10.000
+                  </p>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {[50000, 100000, 250000, 500000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopUpNominal(String(amt))}
+                        className={`rounded-lg border px-1 py-2 text-[10px] font-bold transition ${
+                          topUpNominal === String(amt)
+                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        Rp {(amt / 1000).toFixed(0)}rb
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RINGKASAN NOMINAL */}
+                {Number(topUpNominal) >= 10000 &&
+                  Number.isSafeInteger(Number(topUpNominal)) && (
+                    <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <span className="text-slate-400">
+                        Total transfer
+                      </span>
+                      <span className="font-mono font-bold text-emerald-400">
+                        Rp {Number(topUpNominal).toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  )}
+
+                {topUpNominal !== "" &&
+                  (!Number.isSafeInteger(Number(topUpNominal)) ||
+                    Number(topUpNominal) < 10000) && (
+                    <p className="text-[11px] text-red-400">
+                      Nominal minimal adalah Rp10.000.
+                    </p>
+                  )}
+              </div>
+
+              {/* CATATAN */}
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p className="text-[10px] leading-relaxed text-slate-400">
+                  <span className="font-bold text-amber-400">
+                    Penting:
+                  </span>{" "}
+                  Setelah transfer, kirim konfirmasi melalui WhatsApp dan lampirkan bukti transfer secara manual. Saldo akan diperbarui setelah pembayaran diverifikasi admin.
+                </p>
+              </div>
+
+              {/* TOMBOL AKSI */}
+              <div className="flex gap-2 border-t border-slate-800 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTopUpModalOpen(false)}
+                  className="rounded-xl bg-slate-800 px-4 py-3 font-bold text-slate-300 transition hover:bg-slate-700"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    !Number.isSafeInteger(Number(topUpNominal)) ||
+                    Number(topUpNominal) < 10000
+                  }
+                  onClick={() => {
+                    const num = Number(topUpNominal);
+
+                    if (
+                      !Number.isSafeInteger(num) ||
+                      num < 10000
+                    ) {
+                      return;
+                    }
+
+                    const pesan = [
+                      "Halo Admin, saya ingin melakukan top-up saldo.",
+                      "",
+                      `Nama: ${owner.namaOwner}`,
+                      `Brand Studio: ${owner.namaBrand}`,
+                      `Nominal Top-Up: Rp ${num.toLocaleString("id-ID")}`,
+                      "",
+                      "Saya akan melampirkan bukti transfer pada chat ini.",
+                      "Mohon verifikasi pembayaran saya. Terima kasih."
+                    ].join("\n");
+
+                    const url = `https://wa.me/6283132304649?text=${encodeURIComponent(pesan)}`;
+
+                    window.open(url, "_blank", "noopener,noreferrer");
+
+                    setIsTopUpModalOpen(false);
+                    setTopUpNominal("");
+                  }}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span>💬</span>
+                  <span>Kirim via WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    
     </div>
   );
 };

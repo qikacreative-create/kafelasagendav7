@@ -1,6 +1,6 @@
 {
-  "name": "Kafela's Agenda",
-  "description": "Aplikasi manajemen jadwal agenda studio, booking web, struk pembayaran, dan keuangan vendor.",
+  "name": "Remix kafelas-agenda-5",
+  "description": "Imported from GitHub: hiduptenangdimalati-bit/kafelas-agenda-5",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
