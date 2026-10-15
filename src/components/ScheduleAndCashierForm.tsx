@@ -125,7 +125,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
   const [lokasi, setLokasi] = useState(
     activeEditItem?.lokasi && activeEditItem.lokasi !== 'di tempat'
       ? activeEditItem.lokasi
-      : 'Studio Utama'
+      : ''
   );
 
   const [tglMulaiStr, setTglMulaiStr] = useState(
@@ -338,50 +338,88 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
 
   return (
 
-    
-    <div className="rounded-xl bg-slate-900 border border-slate-800 shadow-lg">
+    <div className="rounded-xl bg-slate-900  border-slate-800 shadow-lg">
       {/* Header Form */}
-            <div className="grid grid-cols-1 gap-1 px-2 pt-2">
-              <input
-                type="text"
-                placeholder="Nama Acara (Cth: Wisuda / Wedding)"
-                value={namaAcara}
-                onChange={(e) => setNamaAcara(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-3 text-white text-[12px] focus:border-sky-500 focus:outline-none"
-              />
-     
-            </div>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-800 bg-slate-950">
+        <div className="flex items-center gap-2">
+          <Receipt className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-xs sm:text-sm font-bold text-white">
+            {activeEditItem
+              ? 'Edit Jadwal & Transaksi'
+              : formMode === 'KASIR_CEPAT'
+              ? 'Kasir Cepat (Walk-In)'
+              : 'Tambah Agenda & Event Baru'}
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+          title="Tutup Form"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
+      {/* Mode Switcher (Kasir Cepat vs Agenda Event) */}
+      {!activeEditItem && (
+        <div className="p-2 pt-2">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setFormMode('KASIR_CEPAT')}
+              className={`py-1.5 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                formMode === 'KASIR_CEPAT'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Kasir Cepat
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormMode('AGENDA_LENGKAP')}
+              className={`py-1.5 px-3 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                formMode === 'AGENDA_LENGKAP'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Agenda Event
+            </button>
+          </div>
+        </div>
+      )}
 
-
-      <form onSubmit={handleSubmit} className="p-2 space-y-2 text-[12px]">
+      <form onSubmit={handleSubmit} className="px-0 space-y-2 text-[12px]">
         {/* Baris 1: Nama Klien & Nomor WA */}
-        
-<div className="grid grid-cols-2 gap-1">
-  <div className="min-w-0">
- 
-    <input
-      type="text"
-      required
-      placeholder="Nama pelanggan"
-      value={namaKlien}
-      onChange={(e) => setNamaKlien(e.target.value)}
-                  className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-3 text-white font-mono text-[12px]"
-    />
-  </div>
+        <div className="grid grid-cols-2 gap-1">
+          <div className="min-w-0">
+            <input
+              type="text"
+              required
+              placeholder="Nama pelanggan *"
+              value={namaKlien}
+              onChange={(e) => setNamaKlien(e.target.value)}
+              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
+            />
+          </div>
 
-  <div className="min-w-0">
+          <div className="min-w-0">
+            <input
+              type="tel"
+              placeholder="Nomor WhatsApp (0812xxxx)"
+              value={waKlien}
+              onChange={(e) => setWaKlien(e.target.value)}
+              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white font-mono text-[12px] focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+        </div>
 
-    <input
-      type="tel"
-      placeholder="0812xxxx"
-      value={waKlien}
-      onChange={(e) => setWaKlien(e.target.value)}
-                  className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-3 text-white font-mono text-[12px]"
-    />
-  </div>
-</div>
-   <div className="grid grid-cols-2 gap-1">
+        {/* Khusus Agenda Event: Nama Acara, Lokasi, Tanggal & Jam */}
+        {formMode === 'AGENDA_LENGKAP' && (
+          <div className="space-y-1.5 pt-0.5">
+            <div className="grid grid-cols-2 gap-1">
               <input
                 type="text"
                 placeholder="Nama Acara (Cth: Wisuda / Wedding)"
@@ -397,6 +435,62 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
                 className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
               />
             </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
+                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
+                  Mulai
+                </span>
+                <input
+                  type="date"
+                  value={tglMulaiStr}
+                  onChange={(e) => {
+                    setTglMulaiStr(e.target.value);
+                    if (e.target.value > tglSelesaiStr) setTglSelesaiStr(e.target.value);
+                  }}
+                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
+                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
+                Selesai
+                </span>
+                <input
+                  type="date"
+                  value={tglSelesaiStr}
+                  min={tglMulaiStr}
+                  onChange={(e) => setTglSelesaiStr(e.target.value)}
+                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
+                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
+                  Jam Mulai
+                </span>
+                <input
+                  type="time"
+                  value={jamMulaiStr}
+                  onChange={(e) => setJamMulaiStr(e.target.value)}
+                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
+                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
+                  Jam Selesai
+                </span>
+                <input
+                  type="time"
+                  value={jamSelesaiStr}
+                  onChange={(e) => setJamSelesaiStr(e.target.value)}
+                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
 
         {/* Baris 2: Pilih Paket Layanan (Dropdown) */}
@@ -479,7 +573,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
               <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/60">
                 {paketList.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-400">
-                    <p>Belum ada paket layanan di master data.</p>
+                    <p>Belum ada paket layanan</p>
                     {onOpenMasterPaket && (
                       <button
                         type="button"
@@ -575,112 +669,45 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
           )}
         </div>
 
-        {/* Kolom Agenda Lengkap (Nama Acara, Tanggal, Jam, Lokasi) */}
-        {formMode === 'AGENDA_LENGKAP' && (
-          <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
-            <div className="grid grid-cols-2 gap-1">
-              <input
-                type="text"
-                placeholder="Nama Acara (Cth: Wisuda / Wedding)"
-                value={namaAcara}
-                onChange={(e) => setNamaAcara(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
-              />
-              <input
-                type="text"
-                placeholder="Lokasi Acara (Cth: Studio Utama / Hotel)"
-                value={lokasi}
-                onChange={(e) => setLokasi(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
-              />
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
-                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
-                  Tgl Mulai
-                </span>
-                <input
-                  type="date"
-                  value={tglMulaiStr}
-                  onChange={(e) => {
-                    setTglMulaiStr(e.target.value);
-                    if (e.target.value > tglSelesaiStr) setTglSelesaiStr(e.target.value);
-                  }}
-                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
-                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
-                  Tgl Selesai
-                </span>
-                <input
-                  type="date"
-                  value={tglSelesaiStr}
-                  min={tglMulaiStr}
-                  onChange={(e) => setTglSelesaiStr(e.target.value)}
-                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
-                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
-                  Jam Mulai
-                </span>
-                <input
-                  type="time"
-                  value={jamMulaiStr}
-                  onChange={(e) => setJamMulaiStr(e.target.value)}
-                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
-                <span className="px-2 py-2 bg-slate-900 text-slate-400 text-[10px] font-semibold border-r border-slate-800 shrink-0">
-                  Jam Selesai
-                </span>
-                <input
-                  type="time"
-                  value={jamSelesaiStr}
-                  onChange={(e) => setJamSelesaiStr(e.target.value)}
-                  className="w-full px-2 py-2 text-white font-mono text-[11px] bg-transparent focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Baris 3: Harga Paket, Diskon, Tambahan */}
-        <div className="grid grid-cols-2 gap-1 pt-1">
+<div className="grid grid-cols-[4fr_3fr] gap-1">
           <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
             <span className="px-2.5 py-2.5 bg-slate-900 text-slate-400 text-[11px] font-bold border-r border-slate-800 shrink-0">
-              Harga Rp
+              Harga
             </span>
-            <input
+<input
               type="text"
               placeholder="0"
               value={hargaDasarStr}
               onChange={(e) => setHargaDasarStr(formatRibuanInput(e.target.value))}
               className="w-full px-2.5 py-2 text-white font-mono font-semibold text-xs bg-transparent focus:outline-none"
-            />
+            /> 
           </div>
 
           <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-rose-500">
             <span className="px-2.5 py-2.5 bg-slate-900 text-rose-400 text-[11px] font-bold border-r border-slate-800 shrink-0">
-              Diskon Rp
+              Diskon
             </span>
-            <input
-              type="text"
-              placeholder="0"
-              value={diskonStr}
-              onChange={(e) => setDiskonStr(formatRibuanInput(e.target.value))}
-              className="w-full px-2.5 py-2 text-rose-300 font-mono text-xs bg-transparent focus:outline-none"
-            />
+       <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  placeholder="0"
+  value={diskonStr}
+  onChange={(e) => {
+    const angkaSaja = e.target.value.replace(/\D/g, '');
+    setDiskonStr(
+      angkaSaja ? formatRibuanInput(angkaSaja) : ''
+    );
+  }}
+  className="w-full px-2.5 py-2 text-rose-300 font-mono text-xs bg-transparent focus:outline-none"
+/>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1">
+<div className="grid grid-cols-[4fr_3fr] gap-1">
           <input
             type="text"
             placeholder="Item Tambahan (Cth: Cetak 10R / Extra Orang)"
@@ -690,16 +717,23 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
           />
 
           <div className="flex items-center rounded-lg bg-slate-950 border border-slate-700 overflow-hidden focus-within:border-sky-500">
-            <span className="px-2.5 py-2 bg-slate-900 text-sky-400 text-[11px] font-bold border-r border-slate-800 shrink-0">
-              + Biaya Rp
+            <span className="px-2 py-2 bg-slate-900 text-sky-400 text-[11px] font-bold border-r border-slate-800 shrink-0">
+              + Biaya
             </span>
-            <input
-              type="text"
-              placeholder="0"
-              value={hargaTambahanStr}
-              onChange={(e) => setHargaTambahanStr(formatRibuanInput(e.target.value))}
-              className="w-full px-2.5 py-2 text-sky-300 font-mono text-xs bg-transparent focus:outline-none"
-            />
+       <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  placeholder="0"
+  value={hargaTambahanStr}
+  onChange={(e) => {
+    const angkaSaja = e.target.value.replace(/\D/g, '');
+    setHargaTambahanStr(
+      angkaSaja ? formatRibuanInput(angkaSaja) : ''
+    );
+  }}
+  className="w-full px-2.5 py-2 text-sky-300 font-mono text-xs bg-transparent focus:outline-none"
+/>
           </div>
         </div>
 
@@ -708,7 +742,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Status Pembayaran:</span>
             <span className="font-mono font-bold text-emerald-400">
-              Total Bersih: {keRupiah(tagihanBersih)}
+              Total: {keRupiah(tagihanBersih)}
             </span>
           </div>
 
@@ -739,13 +773,20 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
                 <span className="px-2.5 py-2 bg-rose-950/60 text-rose-300 text-[11px] font-bold border-r border-rose-900/60 shrink-0">
                   Nominal DP Rp *
                 </span>
-                <input
-                  type="text"
-                  placeholder="0"
-                  value={nominalDpStr}
-                  onChange={(e) => setNominalDpStr(formatRibuanInput(e.target.value))}
-                  className="w-full px-2.5 py-2 text-white font-mono font-bold text-xs bg-transparent focus:outline-none"
-                />
+          <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  placeholder="0"
+  value={nominalDpStr}
+  onChange={(e) => {
+    const angkaSaja = e.target.value.replace(/\D/g, '');
+    setNominalDpStr(
+      angkaSaja ? formatRibuanInput(angkaSaja) : ''
+    );
+  }}
+  className="w-full px-2.5 py-2 text-white font-mono font-bold text-xs bg-transparent focus:outline-none"
+/>
               </div>
             </div>
           )}
@@ -754,7 +795,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
         {/* Catatan */}
         <div>
           <textarea
-            rows={2}
+            rows={1}
             placeholder="Catatan tambahan untuk tim atau struk (Opsional)..."
             value={catatan}
             onChange={(e) => setCatatan(e.target.value)}
@@ -764,7 +805,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
 
         {/* 4 MODUL KHUSUS PROFESI (MUA, FOTO, MC, WO) — Persis bs_tambahjadwal.xml */}
         {formMode === 'AGENDA_LENGKAP' && (
-          <div className="space-y-2 pt-1">
+          <div className="space-y-1 pt-0">
             {/* 1. Modul MUA */}
             {(jenisUsaha.toLowerCase().includes('mua') ||
               jenisUsaha.toLowerCase().includes('pakaian') ||
