@@ -1624,7 +1624,7 @@
         <!-- NAVBAR ATAS (4 HALAMAN/SEKSI: LANDING PAGE, PORTOFOLIO, LAYANAN, PENUTUP) -->
         <nav class="am-nav">
             <a class="am-brand" onclick="navigasiKe(0, 'sectionSampul')">
-                <img id="amLogoImg" class="am-brand-logo logo-clickable" onclick="handleLogoClick(event)" src="/logo-kafela.svg" alt="Logo" style="display: block;" title="Klik 3x untuk Portal Kru">
+                <img id="amLogoImg" class="am-brand-logo logo-clickable" onclick="handleLogoClick(event)" src="/logo-kafela.svg" alt="Logo" loading="lazy" decoding="async" style="display: block;" title="Klik 3x untuk Portal Kru">
                 <span class="js-nama-brand">Memuat Profil...</span>
             </a>
             <div class="am-nav-links">
@@ -1641,11 +1641,11 @@
 
             <!-- HALAMAN 1 / HERO: LANDING UTAMA -->
             <section class="page cover active" id="sectionSampul">
-                <img id="amCoverBg" class="cover-bg" src="" alt="Sampul">
+                <img id="amCoverBg" class="cover-bg" src="" alt="Sampul" decoding="async" loading="eager">
                 <div class="page-in cover-in">
                     <div class="cover-frame">
                         <div class="logo-clickable" style="width: 78px; height: 78px; border-radius: 50%; overflow: hidden; margin: 0 auto 14px; border: 2px solid rgba(255,255,255,0.65); background: #ffffff; box-shadow: 0 8px 24px rgba(0,0,0,0.28);" onclick="handleLogoClick(event)" title="Klik 3x untuk Portal Kru">
-                            <img id="coverLogoImg" src="/logo-kafela.svg" alt="Logo" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                            <img id="coverLogoImg" src="/logo-kafela.svg" alt="Logo" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                         </div>
                         <div id="cinematicBadgeEl" class="cinematic-badge" style="display: none;">
                             <span>🎬</span> <span>21:9 Widescreen Premiere Showcase</span>
@@ -1685,7 +1685,7 @@
 
                     <!-- 1 FOTO UTAMA BESAR DI ATAS HALAMAN PORTOFOLIO -->
                     <div id="featuredKaryaWrap" class="featured-karya-hero" onclick="bukaLightbox(featuredKaryaUrl, featuredKaryaTitle)">
-                        <img id="featuredKaryaImg" src="" alt="Foto Utama">
+                        <img id="featuredKaryaImg" src="" alt="Foto Utama" loading="lazy" decoding="async">
                         <div class="featured-karya-caption">
                             <div>
                                 <span class="featured-karya-badge">Foto Pilihan</span>
@@ -2075,22 +2075,38 @@
     async function cariDanMuatDataProfil(TargetId) {
         const isPreviewMode = urlParams.get('preview') === '1' || Boolean(layoutOverride) || Boolean(temaOverride);
 
-        // 0. Cek draft preview di sessionStorage (Instan, offline, & 0 pemakaian kuota Firebase)
+        // 0. Cek draft preview atau data demo di sessionStorage (Instan, offline, & 0 pemakaian kuota Firebase)
         try {
-            const rawDraft = sessionStorage.getItem('current_owner_preview_draft');
-            if (rawDraft) {
+            const rawDraft = sessionStorage.getItem('demo_profile_data') || sessionStorage.getItem('current_owner_preview_draft');
+            if (rawDraft && (TargetId === 'demo' || isPreviewMode || !TargetId)) {
                 const draftData = JSON.parse(rawDraft);
                 if (draftData && typeof draftData === 'object') {
                     if (temaOverride) draftData.temaWeb = temaOverride;
                     if (layoutOverride) draftData.layoutWeb = layoutOverride;
                     draftData.isWebsiteActive = true;
                     renderDataOwner(draftData);
-                    await muatKatalogPaket(draftData.ownerUid || null);
+                    if (draftData.paketList && Array.isArray(draftData.paketList) && draftData.paketList.length > 0) {
+                        renderPaketHtml(draftData.paketList);
+                    } else {
+                        await muatKatalogPaket(draftData.ownerUid || null);
+                    }
                     return;
                 }
             }
         } catch (eDraft) {
             console.warn("Draft preview cache skipped:", eDraft);
+        }
+
+        if (TargetId === 'demo') {
+            const demoData = createDefaultFallbackData('demo');
+            renderDataOwner(demoData);
+            renderPaketHtml([
+                { namaPaket: 'Self Photo Studio (15 Menit)', hargaPaket: 75000, deskripsiPaket: 'Bebas ekspresi 15 menit, semua file Google Drive + Cetak 2 Strip 4R' },
+                { namaPaket: 'Paket Foto Wisuda & Keluarga Studio', hargaPaket: 350000, deskripsiPaket: 'Durasi 45 menit, maks 8 orang, 10 foto edit + Cetak 10R Frame' },
+                { namaPaket: 'Silver Yearbook (3 Tema)', hargaPaket: 2500000, deskripsiPaket: 'Pemotretan buku tahunan sekolah 1 kelas, 2 fotografer + drone' },
+                { namaPaket: 'Gold Wedding Documentation', hargaPaket: 5500000, deskripsiPaket: '2 Fotografer, 1 Videografer, Cinematic Highlight 3 menit, Album Magnetik' }
+            ]);
+            return;
         }
 
         try {
@@ -2630,7 +2646,7 @@
             const safeTitle = item.judul.replace(/'/g, "\\'").replace(/"/g, '&quot;');
             return `
                 <figure class="gal ${isActive}" onclick="klikItemGaleri(${idx}, '${item.url}', '${safeTitle}')">
-                    <img src="${item.url}" alt="${safeTitle}">
+                    <img src="${item.url}" alt="${safeTitle}" loading="lazy" decoding="async">
                     <figcaption>
                         <div class="g-name">${item.judul}</div>
                         <div class="g-tag">0${idx + 1}</div>
@@ -2645,8 +2661,33 @@
         window.bukaLightbox(url, title);
     };
 
-    async function muatKatalogPaket(uid) {
+    function renderPaketHtml(listPaket) {
         const amGrid = document.getElementById('amServicesGrid');
+        if (!amGrid || !Array.isArray(listPaket)) return;
+        let htmlAmour = "";
+        listPaket.forEach((p, idx) => {
+            const noUrut = String(idx + 1).padStart(2, '0');
+            const harga = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p.hargaPaket || 0);
+            const desc = p.deskripsiPaket || 'Layanan profesional terpercaya dengan hasil berkualitas.';
+            const namaAman = (p.namaPaket || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const descAman = (p.deskripsiPaket || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+
+            htmlAmour += `
+                <div class="svc-item">
+                    <div>
+                        <div class="svc-no">${noUrut}</div>
+                        <div class="svc-name">${p.namaPaket}</div>
+                        <div class="svc-price">${harga}</div>
+                        <div class="svc-desc">${desc}</div>
+                    </div>
+                    <button type="button" class="svc-btn" onclick="bukaFormBooking('${namaAman}', '${descAman}')">Pilih Paket &amp; Booking &rarr;</button>
+                </div>
+            `;
+        });
+        amGrid.innerHTML = htmlAmour;
+    }
+
+    async function muatKatalogPaket(uid) {
         try {
             let listPaket = [];
             if (uid) {
@@ -2686,28 +2727,11 @@
                 ];
             }
 
-            let htmlAmour = "";
-            listPaket.forEach((p, idx) => {
-                const noUrut = String(idx + 1).padStart(2, '0');
-                const harga = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p.hargaPaket || 0);
-                const desc = p.deskripsiPaket || 'Layanan profesional terpercaya dengan hasil berkualitas.';
-                const namaAman = (p.namaPaket || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                const descAman = (p.deskripsiPaket || '').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-
-                htmlAmour += `
-                    <div class="svc-item">
-                        <div>
-                            <div class="svc-no">${noUrut}</div>
-                            <div class="svc-name">${p.namaPaket}</div>
-                            <div class="svc-price">${harga}</div>
-                            <div class="svc-desc">${desc}</div>
-                        </div>
-                        <button type="button" class="svc-btn" onclick="bukaFormBooking('${namaAman}', '${descAman}')">Pilih Paket &amp; Booking &rarr;</button>
-                    </div>
-                `;
-            });
-
-            amGrid.innerHTML = htmlAmour;
+            renderPaketHtml(listPaket);
+        } catch (e) {
+            console.error(e);
+        }
+    }
         } catch (e) {
             console.error(e);
         }

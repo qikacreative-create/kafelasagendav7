@@ -263,7 +263,13 @@ export default function App() {
   const [jadwalAktif, setJadwalAktif] = useState<JadwalFotografi[]>(() => {
     try {
       const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).jadwalAktif || initialDemo.jadwalAktif;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.sessionMode === 'DEMO' && Array.isArray(parsed.jadwalAktif) && parsed.jadwalAktif.length < 8) {
+          return initialDemo.jadwalAktif;
+        }
+        return parsed.jadwalAktif || initialDemo.jadwalAktif;
+      }
     } catch {}
     return initialDemo.jadwalAktif;
   });
@@ -837,16 +843,76 @@ export default function App() {
     setUserRole('owner');
     setActiveUserName(seeded.owner.namaOwner);
     setActiveTab('KALENDER');
+    setSelectedDateStr(null);
+    setStatusFilter('SEMUA_BULAN');
     setSessionMode('DEMO');
+
+    // Simpan data workspace demo ke LocalStorage & SessionStorage agar web profil demo & reload berfungsi optimal
+    try {
+      localStorage.setItem(
+        LOCAL_CACHE_KEY,
+        JSON.stringify({
+          sessionMode: 'DEMO',
+          targetOwnerId: seeded.owner.uid,
+          userRole: 'owner',
+          activeUserName: seeded.owner.namaOwner,
+          cachedAt: Date.now(),
+          owner: seeded.owner,
+          rekening: seeded.rekening,
+          paketList: seeded.paketList,
+          jadwalAktif: seeded.jadwalAktif,
+          jadwalArsip: seeded.jadwalArsip,
+          timList: seeded.timList,
+        })
+      );
+      const demoProfilePayload = JSON.stringify({
+        ...seeded.owner,
+        paketList: seeded.paketList,
+        ownerUid: seeded.owner.uid,
+      });
+      sessionStorage.setItem('demo_profile_data', demoProfilePayload);
+      sessionStorage.setItem('current_owner_preview_draft', demoProfilePayload);
+    } catch {}
+
     setQuotaStats({
-      readsSession: 1,
+      readsSession: 0,
       writesSession: 0,
-      cacheHitsSession: 5,
+      cacheHitsSession: 10,
       lastSyncedAt: Date.now(),
       syncMode: 'CACHE_PRO',
-      isLiveListenerActive: seeded.owner.paketAktif === 'Ultimate',
+      isLiveListenerActive: false,
       isIdlePaused: false,
     });
+    setToastMessage(`✓ Mode Demo Aktif: ${seeded.owner.namaBrand}`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Jika sedang dalam Mode Demo namun data lokal lama hanya memiliki < 8 jadwal, segarkan otomatis ke 9-10 jadwal
+  useEffect(() => {
+    if (sessionMode === 'DEMO' && jadwalAktif.length < 8) {
+      const preset: ProfessionPresetKey =
+        owner.jenisUsaha.includes('MUA')
+          ? 'MUA'
+          : owner.jenisUsaha.includes('Wedding Organizer')
+          ? 'WO'
+          : owner.jenisUsaha.includes('Master of Ceremony')
+          ? 'MC'
+          : 'FOTO';
+      const refreshed = generateDemoWorkspace(preset);
+      setJadwalAktif(refreshed.jadwalAktif);
+      setPaketList(refreshed.paketList);
+    }
+  }, [sessionMode, jadwalAktif.length, owner.jenisUsaha]);
+
+  const handleExitDemo = () => {
+    try {
+      localStorage.removeItem(LOCAL_CACHE_KEY);
+      sessionStorage.removeItem('demo_profile_data');
+      sessionStorage.removeItem('current_owner_preview_draft');
+    } catch {}
+    setSessionMode(null);
+    setToastMessage('Keluar dari Mode Demo');
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
   // Start Mode Firebase Asli (dengan Smart Cache 0-Read saat Reload)
@@ -1880,22 +1946,41 @@ if (isDrawer) setDrawerOpen(false);
 
       {/* Footer Logout */}
       <div className="p-3 border-t border-white/10 mt-auto shrink-0">
-        <button
-          type="button"
-          onClick={async () => {
-            if (isDrawer) setDrawerOpen(false);
-            if (sessionMode === 'FIREBASE') {
-              await logoutFirebaseSession();
-            }
-            localStorage.removeItem(LOCAL_CACHE_KEY);
-            setSessionMode(null);
-          }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white cursor-pointer hover:opacity-95 active:scale-[0.98] transition-all shadow-md"
-          style={{ backgroundColor: '#C0392B' }}
-        >
-          <LogOut className="w-4 h-4 shrink-0" />
-          <span>Keluar Akun</span>
-        </button>
+        {sessionMode === 'DEMO' ? (
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (isDrawer) setDrawerOpen(false);
+                handleExitDemo();
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-amber-300 hover:text-white bg-amber-500/20 hover:bg-amber-600/40 border border-amber-500/40 cursor-pointer active:scale-[0.98] transition-all shadow-md"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span>Keluar Mode Demo</span>
+            </button>
+            <p className="text-[10px] text-center text-amber-200/70">
+              Kembali ke Layar Login Utama
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={async () => {
+              if (isDrawer) setDrawerOpen(false);
+              if (sessionMode === 'FIREBASE') {
+                await logoutFirebaseSession();
+              }
+              localStorage.removeItem(LOCAL_CACHE_KEY);
+              setSessionMode(null);
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white cursor-pointer hover:opacity-95 active:scale-[0.98] transition-all shadow-md"
+            style={{ backgroundColor: '#C0392B' }}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span>Keluar Akun</span>
+          </button>
+        )}
       </div>
     </div>
   );

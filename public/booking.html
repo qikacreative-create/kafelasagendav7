@@ -202,7 +202,7 @@
     <div class="header-banner">
         <a id="linkKembaliProfil" class="back-link" href="#">&larr; Lihat Portofolio &amp; Layanan</a>
         <div style="margin: 6px auto 10px; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #ffffff; border: 2px solid rgba(255,255,255,0.4); box-shadow: 0 6px 18px rgba(0,0,0,0.2);">
-            <img id="logoBookingHeader" src="/logo-kafela.svg" alt="Logo Brand" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            <img id="logoBookingHeader" src="/logo-kafela.svg" alt="Logo Brand" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; display: block;">
         </div>
         <h2 id="namaStudioLoading">Memuat Formulir Layanan...</h2>
         <p class="header-sub">Silakan lengkapi formulir reservasi jadwal di bawah ini</p>
@@ -365,10 +365,94 @@
     if (namaParam) document.getElementById('klienNama').value = namaParam;
     if (waParam) document.getElementById('klienWa').value = waParam;
 
+    function muatFormDenganData(dataBrand) {
+        if (!usernameParam) usernameParam = dataBrand.username || 'demo';
+        document.getElementById('linkKembaliProfil').href = `/profil.html?id=${encodeURIComponent(usernameParam)}${temaOverride ? '&tema=' + encodeURIComponent(temaOverride) : ''}`;
+        document.getElementById('linkKembaliProfil').style.display = 'inline-flex';
+
+        const temaAktif = temaOverride || dataBrand.temaWeb || 'MODERN_STUDIO';
+        if (['MODERN_STUDIO', 'LUXURY_GOLD', 'CLEAN_MINIMALIST'].includes(temaAktif)) {
+            document.body.setAttribute('data-theme', temaAktif);
+        }
+        noWaOwner = dataBrand.noWhatsApp || '083132304649';
+        const namaTampil = dataBrand.namaBrand || "Booking Formulir";
+        document.getElementById('namaStudioLoading').innerText = namaTampil;
+        document.title = "Form Booking - " + namaTampil;
+        const logoBookingEl = document.getElementById('logoBookingHeader');
+        if (logoBookingEl) {
+            logoBookingEl.loading = 'lazy';
+            logoBookingEl.decoding = 'async';
+            logoBookingEl.src = (dataBrand.logoBrandUrl && dataBrand.logoBrandUrl.trim() !== "")
+                ? dataBrand.logoBrandUrl
+                : "/logo-kafela.svg";
+        }
+
+        const hariIni = new Date().toISOString().split('T')[0];
+        document.getElementById('klienTanggal').setAttribute('min', hariIni);
+
+        const dropdownPaket = document.getElementById('klienPaket');
+        dropdownPaket.innerHTML = '<option value="" disabled selected>Pilih Paket Layanan</option>';
+        const listPaket = dataBrand.paketList || [
+            { namaPaket: 'Self Photo Studio (15 Menit)', hargaPaket: 75000, deskripsiPaket: 'Bebas ekspresi 15 menit, semua file Google Drive + Cetak 2 Strip 4R' },
+            { namaPaket: 'Paket Foto Wisuda & Keluarga Studio', hargaPaket: 350000, deskripsiPaket: 'Durasi 45 menit, maks 8 orang, 10 foto edit + Cetak 10R Frame' },
+            { namaPaket: 'Gold Wedding Documentation', hargaPaket: 5500000, deskripsiPaket: '2 Fotografer, 1 Videografer, Cinematic Highlight 3 menit, Album Magnetik' }
+        ];
+
+        listPaket.forEach(p => {
+            const namaPaket = p.namaPaket || p.nama || "Paket Layanan";
+            const harga = p.hargaPaket || p.harga || 0;
+            const deskripsi = p.deskripsiPaket || p.deskripsi || "Tidak ada rincian spesifikasi.";
+            dataPaketStudio[namaPaket] = { harga: harga, deskripsi: deskripsi };
+            dropdownPaket.innerHTML += `<option value="${namaPaket}">${namaPaket} — Rp ${parseInt(harga).toLocaleString('id-ID')}</option>`;
+        });
+
+        if (paketParam && dataPaketStudio[paketParam] !== undefined) {
+            dropdownPaket.value = paketParam;
+            document.getElementById('infoHarga').innerText = "Estimasi Biaya: Rp " + parseInt(dataPaketStudio[paketParam].harga).toLocaleString('id-ID');
+            const dataPaket = dataPaketStudio[paketParam];
+            if (dataPaket.deskripsi && dataPaket.deskripsi.trim() !== "" && dataPaket.deskripsi !== "-") {
+                document.getElementById('boxSpesifikasiPaket').style.display = 'block';
+                document.getElementById('textSpesifikasiPaket').innerText = dataPaket.deskripsi;
+            }
+        }
+
+        if (descParam) {
+            document.getElementById('klienCatatan').value = `Catatan Paket (${paketParam}): ${descParam}`;
+        }
+    }
+
     async function muatDataStudio() {
         try {
             let docBrand = null;
             const trimmedTarget = (usernameParam || '').trim();
+
+            // 0. Cek data demo di sessionStorage jika id=demo atau tanpa id
+            try {
+                const rawDemo = sessionStorage.getItem('demo_profile_data') || sessionStorage.getItem('current_owner_preview_draft');
+                if (rawDemo && (trimmedTarget === 'demo' || !trimmedTarget)) {
+                    const parsedDemo = JSON.parse(rawDemo);
+                    if (parsedDemo && typeof parsedDemo === 'object') {
+                        ownerUid = parsedDemo.ownerUid || 'demo-owner-kafela-001';
+                        muatFormDenganData(parsedDemo);
+                        return;
+                    }
+                }
+            } catch (eDemo) {}
+
+            if (trimmedTarget === 'demo') {
+                ownerUid = 'demo-owner-kafela-001';
+                muatFormDenganData({
+                    namaBrand: "Kafela's Photo Studio (Demo)",
+                    username: 'demo',
+                    noWhatsApp: '083132304649',
+                    paketList: [
+                        { namaPaket: 'Self Photo Studio (15 Menit)', hargaPaket: 75000, deskripsiPaket: 'Bebas ekspresi 15 menit, semua file Google Drive + Cetak 2 Strip 4R' },
+                        { namaPaket: 'Paket Foto Wisuda & Keluarga Studio', hargaPaket: 350000, deskripsiPaket: 'Durasi 45 menit, maks 8 orang, 10 foto edit + Cetak 10R Frame' },
+                        { namaPaket: 'Gold Wedding Documentation', hargaPaket: 5500000, deskripsiPaket: '2 Fotografer, 1 Videografer, Cinematic Highlight 3 menit, Album Magnetik' }
+                    ]
+                });
+                return;
+            }
 
             if (trimmedTarget) {
                 const docRef = await getDoc(doc(db, "owners", trimmedTarget));
@@ -595,29 +679,65 @@
 
             const inputNamaTambahan = document.getElementById('klienNamaTambahan') ? document.getElementById('klienNamaTambahan').value.trim() : "";
 
-            await setDoc(jadwalBaruRef, {
-                idJadwal: jadwalBaruRef.id,
-                namaAcara: acara,
-                namaKlien: nama,
-                namaPic: nama,
-                waPic: waBersih,
-                akunMedsos: medsos || "-",
-                tanggalMulai: tTgl,
-                tanggalSelesaiEvent: tTgl,
-                waktuMulai: tMulai,
-                waktuSelesai: tSelesai,
-                lokasi: lokasi,
-                paket: paket,
-                hargaPaketDasar: hargaPaketDasar,
-                namaTambahan: inputNamaTambahan,
-                hargaTambahan: 0,
-                hargaKotor: hargaPaketDasar,
-                diskon: 0,
-                dpDibayar: 0,
-                status: "Booking Web",
-                sumber: "WEB",
-                catatan: teksCatatan
-            });
+            if (ownerUid === 'demo-owner-kafela-001' || usernameParam === 'demo') {
+                try {
+                    const cacheRaw = localStorage.getItem('KAFELA_PC_WORKSPACE_CACHE_V4');
+                    if (cacheRaw) {
+                        const parsed = JSON.parse(cacheRaw);
+                        parsed.jadwalAktif = parsed.jadwalAktif || [];
+                        parsed.jadwalAktif.unshift({
+                            idJadwal: 'WEB-DEMO-' + Date.now().toString().slice(-4),
+                            namaAcara: acara,
+                            namaKlien: nama,
+                            namaPic: nama,
+                            waPic: waBersih,
+                            akunMedsos: medsos || "-",
+                            tanggalMulai: tTgl,
+                            tanggalSelesaiEvent: tTgl,
+                            waktuMulai: tMulai,
+                            waktuSelesai: tSelesai,
+                            lokasi: lokasi,
+                            paket: paket,
+                            hargaPaketDasar: hargaPaketDasar,
+                            namaTambahan: inputNamaTambahan,
+                            hargaTambahan: 0,
+                            hargaKotor: hargaPaketDasar,
+                            diskon: 0,
+                            dpDibayar: 0,
+                            status: "Booking Web",
+                            sumber: "WEB",
+                            catatan: teksCatatan
+                        });
+                        localStorage.setItem('KAFELA_PC_WORKSPACE_CACHE_V4', JSON.stringify(parsed));
+                    }
+                } catch (eCache) {
+                    console.warn("Demo booking local cache:", eCache);
+                }
+            } else {
+                await setDoc(jadwalBaruRef, {
+                    idJadwal: jadwalBaruRef.id,
+                    namaAcara: acara,
+                    namaKlien: nama,
+                    namaPic: nama,
+                    waPic: waBersih,
+                    akunMedsos: medsos || "-",
+                    tanggalMulai: tTgl,
+                    tanggalSelesaiEvent: tTgl,
+                    waktuMulai: tMulai,
+                    waktuSelesai: tSelesai,
+                    lokasi: lokasi,
+                    paket: paket,
+                    hargaPaketDasar: hargaPaketDasar,
+                    namaTambahan: inputNamaTambahan,
+                    hargaTambahan: 0,
+                    hargaKotor: hargaPaketDasar,
+                    diskon: 0,
+                    dpDibayar: 0,
+                    status: "Booking Web",
+                    sumber: "WEB",
+                    catatan: teksCatatan
+                });
+            }
 
             let waTujuan = validasiDanFormatWhatsApp(noWaOwner);
             if (!waTujuan) {

@@ -348,7 +348,20 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
                 </button>
               </div>
 
-
+              {/* TOMBOL MASUK MODE DEMO (JADWAL TERISI) */}
+              <div className="pt-3 border-t border-[#333333] text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowDemoPickerModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 transition-all cursor-pointer shadow"
+                >
+                  <Play className="w-4 h-4 fill-amber-300" />
+                  <span>Coba Mode Demo (Jadwal Terisi)</span>
+                </button>
+                <p className="mt-1.5 text-[11px] text-[#888888]">
+                  Uji coba langsung agenda, kasir, dan cetak struk tanpa perlu login
+                </p>
+              </div>
             </form>
           </>
         ) : (
@@ -712,6 +725,103 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PILIHAN PRESET PROFESI MODE DEMO */}
+      {showDemoPickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div
+            className="w-full max-w-md rounded-2xl p-6 text-white space-y-4 border shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            style={{ backgroundColor: '#1E1E1E', borderColor: '#333333' }}
+          >
+            <div className="flex items-center justify-between border-b border-[#333333] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>🚀</span> Pilih Bidang Usaha Demo
+                </h3>
+                <p className="text-xs text-[#AAAAAA] mt-0.5">
+                  Setiap opsi sudah dilengkapi jadwal, kasir, paket, dan booking web
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDemoPickerModal(false)}
+                className="p-1 rounded-lg text-[#AAAAAA] hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {[
+                {
+                  key: 'FOTO' as ProfessionPresetKey,
+                  icon: '📸',
+                  title: 'Studio Foto & Fotografi',
+                  sub: 'Wisuda, Self Photo, Wedding, Pas Foto',
+                  color: 'hover:border-sky-500/60 hover:bg-sky-500/10',
+                },
+                {
+                  key: 'MUA' as ProfessionPresetKey,
+                  icon: '💄',
+                  title: 'MUA & Rias Pengantin',
+                  sub: 'Bridal, Wisuda, Hijabdo, Henna',
+                  color: 'hover:border-purple-500/60 hover:bg-purple-500/10',
+                },
+                {
+                  key: 'WO' as ProfessionPresetKey,
+                  icon: '💍',
+                  title: 'Wedding Organizer (WO)',
+                  sub: 'Rundown Akad, Resepsi, All-In Planner',
+                  color: 'hover:border-emerald-500/60 hover:bg-emerald-500/10',
+                },
+                {
+                  key: 'MC' as ProfessionPresetKey,
+                  icon: '🎤',
+                  title: 'MC & Event Protocol',
+                  sub: 'Host Wedding, Corporate, Sound System',
+                  color: 'hover:border-amber-500/60 hover:bg-amber-500/10',
+                },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    setShowDemoPickerModal(false);
+                    onStartDemo(item.key);
+                  }}
+                  className={`p-3.5 rounded-xl border border-[#333333] bg-[#161616] text-left transition-all cursor-pointer flex flex-col justify-between group ${item.color}`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="font-bold text-xs text-white group-hover:text-amber-300 transition-colors">
+                      {item.title}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#888888] leading-tight">
+                    {item.sub}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between text-[10px] text-[#AAAAAA] pt-2 border-t border-white/5">
+                    <span>Data Siap Pakai</span>
+                    <span className="text-amber-400 font-bold group-hover:translate-x-0.5 transition-transform">
+                      Mulai Demo →
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2 text-center border-t border-[#333333]">
+              <button
+                type="button"
+                onClick={() => setShowDemoPickerModal(false)}
+                className="px-4 py-2 rounded-lg text-xs text-[#888888] hover:text-white cursor-pointer"
+              >
+                Kembali ke Login
+              </button>
+            </div>
           </div>
         </div>
       )}
