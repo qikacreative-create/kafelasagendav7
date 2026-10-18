@@ -1117,6 +1117,7 @@ export function generateDemoWorkspace(preset: ProfessionPresetKey = 'FOTO'): See
       uid: 'demo-owner-kafela-001',
       namaOwner: chosen.namaOwner,
       namaBrand: chosen.namaBrand,
+      saldo: 150000,
       noWhatsApp: '083132304649',
       jenisUsaha: chosen.jenisUsaha,
       paketAktif: 'Pro',

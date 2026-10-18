@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   CheckCircle2,
   Download,
@@ -58,6 +58,26 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
   const savedCfg = getSavedFirebaseConfig();
   const [fbConfig, setFbConfig] = useState<FirebaseCustomConfig>(savedCfg);
   const [fbSavedToast, setFbSavedToast] = useState(false);
+
+  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v4.10)
+  const tapCountRef = useRef<number>(0);
+  const tapTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSecretVersionTap = () => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      if (onOpenSuperAdmin) {
+        onOpenSuperAdmin();
+      }
+    } else {
+      tapTimerRef.current = setTimeout(() => {
+        tapCountRef.current = 0;
+      }, 2500);
+    }
+  };
 
   const formatAuthError = (err: unknown, isSignup = false): string => {
     const raw = err instanceof Error ? err.message : String(err);
@@ -206,7 +226,18 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
               <p className="mt-1.5" style={{ fontSize: '14px', color: '#AAAAAA' }}>
                 Silakan masuk ke akun Anda
               </p>
+                     <div className="mt-0 text-center select-none">
+          <span
+            onClick={handleSecretVersionTap}
+            className="text-[11px] text-slate-500 font-mono tracking-wider cursor-default hover:text-slate-400 transition-colors inline-block  rounded"
+            title="Kafela's Agenda"
+          >
+            v4.10
+          </span>
+        </div>
             </div>
+
+            
 
             {errorMsg && (
               <div
@@ -562,6 +593,8 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
             </form>
           </>
         )}
+
+ 
 
       </div>
 

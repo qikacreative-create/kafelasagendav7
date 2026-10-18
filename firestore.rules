@@ -36,6 +36,11 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // 0.1 Permintaan Top-Up Saldo Klien & Verifikasi Super Admin
+    match /topup_requests/{reqId} {
+      allow read, write: if isSignedIn();
+    }
+
     // 1. Indeks peran staf (hanya bisa diakses sistem/user terkait)
     match /tim_studio/{uid} {
       allow read: if isSignedIn() && (

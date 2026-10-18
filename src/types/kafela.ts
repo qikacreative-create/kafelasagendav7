@@ -102,8 +102,11 @@ export interface BrandRegistryItem {
   ownerEmail?: string;
   ownerWhatsApp?: string;
   customDomain?: string; // e.g. "kflsagnd.web.app" or "brand.web.app" or "studioanda.com"
+  namaOwner?: string;
   tier: PaketLanggananTier; // "Starter" | "Pro" | "Ultimate"
   status: BrandStatusType;
+  isWebsiteActive?: boolean;
+  saldo?: number;
   maxJadwal?: number;
   createdAt: number;
   expiredAt: number; // timestamp ms

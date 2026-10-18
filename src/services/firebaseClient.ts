@@ -440,6 +440,7 @@ export async function fetchOwnerWorkspaceFromFirebase(
     uid: targetOwnerId,
     namaOwner: (oData.namaOwner as string) || 'Owner',
     namaBrand: rawBrand,
+    saldo: typeof oData.saldo === 'number' ? oData.saldo : (Number(oData.saldo) || 0),
     noWhatsApp: (oData.noWhatsApp as string) || '',
     email: (oData.email as string) || '',
     jenisUsaha: (oData.jenisUsaha as string) || 'Fotografi & Studio Foto',
@@ -451,6 +452,8 @@ export async function fetchOwnerWorkspaceFromFirebase(
     bioWeb: (oData.bioWeb as string) || '',
     linkIg: (oData.linkIg as string) || '',
     linkTiktok: (oData.linkTiktok as string) || '',
+    linkYoutube: (oData.linkYoutube as string) || '',
+    linkFacebook: (oData.linkFacebook as string) || '',
     lokasi1: (oData.lokasi1 as string) || '',
     lokasi2: (oData.lokasi2 as string) || '',
     lokasi3: (oData.lokasi3 as string) || '',
@@ -466,6 +469,8 @@ export async function fetchOwnerWorkspaceFromFirebase(
     ctaTeksKustom: (oData.ctaTeksKustom as string) || '',
     ctaLinkKustom: (oData.ctaLinkKustom as string) || '',
     teksTombolBooking: (oData.teksTombolBooking as string) || '',
+    isWebsiteActive: oData.isWebsiteActive !== false,
+    isBookingActive: oData.isBookingActive !== false,
     webProfil2: oData.webProfil2 ? (oData.webProfil2 as any) : undefined,
     templateWaTagihan:
       (oData.templateWaTagihan as string) ||
@@ -477,8 +482,15 @@ export async function fetchOwnerWorkspaceFromFirebase(
       (oData.templateWaBookingWeb as string) ||
       'Halo kak [NAMA], terima kasih sudah booking di [BRAND] untuk acara *[ACARA]* pada *[TANGGAL]*.\n\nTotal paket: [HARGA]\n\nSilakan transfer DP ke rekening:\n[REKENING]\n\nUntuk mengunci jadwal ya kak. Terima kasih!',
     warnaTema: (oData.warnaTema as string) || '#34495E',
+    gayaLatarNavigasi: (oData.gayaLatarNavigasi as any) || undefined,
+    opasitasNavigasi: typeof oData.opasitasNavigasi === 'number' ? oData.opasitasNavigasi : undefined,
     isKacaGelap: true,
     opasitasOverlay: 'D9',
+    customBackgroundUrl: (oData.customBackgroundUrl as string) || undefined,
+    customBackgroundBlur: typeof oData.customBackgroundBlur === 'number' ? oData.customBackgroundBlur : undefined,
+    customBackgroundOpacity: typeof oData.customBackgroundOpacity === 'number' ? oData.customBackgroundOpacity : undefined,
+    customBackgroundOverlayType: (oData.customBackgroundOverlayType as any) || undefined,
+    opasitasKartu: typeof oData.opasitasKartu === 'number' ? oData.opasitasKartu : undefined,
   };
 
   // Cache Base64 logo & TTD ke IndexedDB secara background jika tersedia
@@ -1664,16 +1676,21 @@ export async function fetchBrandsRegistryFromFirebase(): Promise<BrandRegistryIt
         const tier = (d.paketAktif as BrandRegistryItem['tier']) || 'Ultimate';
         const tanggalDaftar = typeof d.tanggalDaftar === 'number' ? d.tanggalDaftar : Date.now();
         const tanggalLangganan = typeof d.tanggalLangganan === 'number' ? d.tanggalLangganan : Date.now() + 365 * 86400000;
+        const saldo = typeof d.saldo === 'number' ? d.saldo : (Number(d.saldo) || 0);
+        const isWebActive = d.isWebsiteActive !== false;
 
         items.push({
           id: ownerId,
           slug: slug.toLowerCase().replace(/[^a-z0-9]/g, ''),
           namaBrand,
+          namaOwner: (d.namaOwner as string) || namaBrand,
           ownerId,
           ownerEmail: email,
           ownerWhatsApp: noWhatsApp,
           tier,
-          status: 'AKTIF',
+          status: isWebActive ? 'AKTIF' : 'SUSPENDED',
+          isWebsiteActive: isWebActive,
+          saldo,
           maxJadwal: tier === 'Ultimate' ? 99999 : tier === 'Pro' ? 300 : 75,
           createdAt: tanggalDaftar,
           expiredAt: tanggalLangganan,
@@ -1692,16 +1709,21 @@ export async function fetchBrandsRegistryFromFirebase(): Promise<BrandRegistryIt
         const d = docSnap.data();
         const slug = (d.slug as string) || docSnap.id;
         if (!items.some((i) => i.slug === slug || i.ownerId === d.ownerId)) {
+          const saldo = typeof d.saldo === 'number' ? d.saldo : (Number(d.saldo) || 0);
+          const isWebActive = d.isWebsiteActive !== false && d.status !== 'SUSPENDED';
           items.push({
             id: docSnap.id,
             slug: (d.slug as string) || docSnap.id,
             namaBrand: (d.namaBrand as string) || 'Studio Tanpa Nama',
+            namaOwner: (d.namaOwner as string) || (d.namaBrand as string) || 'Owner',
             ownerId: (d.ownerId as string) || docSnap.id,
             ownerEmail: d.ownerEmail as string | undefined,
             ownerWhatsApp: d.ownerWhatsApp as string | undefined,
             customDomain: d.customDomain as string | undefined,
             tier: (d.tier as BrandRegistryItem['tier']) || 'Pro',
-            status: (d.status as BrandRegistryItem['status']) || 'AKTIF',
+            status: isWebActive ? 'AKTIF' : 'SUSPENDED',
+            isWebsiteActive: isWebActive,
+            saldo,
             maxJadwal: typeof d.maxJadwal === 'number' ? d.maxJadwal : 300,
             createdAt: typeof d.createdAt === 'number' ? d.createdAt : Date.now(),
             expiredAt: typeof d.expiredAt === 'number' ? d.expiredAt : Date.now() + 365 * 86400000,
@@ -2030,5 +2052,206 @@ export async function renewSubscriptionWithSaldo(
     return { success: false, error: msg };
   }
 }
+
+export async function updateOwnerSaldo(
+  ownerUid: string,
+  newSaldo: number,
+  brandSlug?: string
+): Promise<{ success: boolean; error?: string; firestoreSaved?: boolean }> {
+  const init = initKafelaFirebase();
+  let firestoreSaved = false;
+  let firestoreError: string | null = null;
+
+  if (init) {
+    try {
+      const ownerRef = doc(init.db, 'owners', ownerUid);
+      await updateDoc(ownerRef, { saldo: newSaldo });
+      firestoreSaved = true;
+    } catch (err: any) {
+      firestoreError = err?.message || String(err);
+      try {
+        const ownerRef = doc(init.db, 'owners', ownerUid);
+        await setDoc(ownerRef, { saldo: newSaldo }, { merge: true });
+        firestoreSaved = true;
+        firestoreError = null;
+      } catch (e2: any) {
+        firestoreError = e2?.message || firestoreError;
+      }
+    }
+
+    if (brandSlug) {
+      try {
+        const brandRef = doc(init.db, 'brands_registry', brandSlug);
+        await setDoc(brandRef, { saldo: newSaldo }, { merge: true });
+        firestoreSaved = true;
+      } catch (eBrand) {
+        console.warn('Simpan saldo ke brands_registry:', eBrand);
+      }
+    }
+  }
+
+  // Update Cache Lokal
+  const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+  if (ownersLocal[ownerUid]) {
+    ownersLocal[ownerUid].saldo = newSaldo;
+    localStorage.setItem('KAFELA_OWNERS_CACHE_V1', JSON.stringify(ownersLocal));
+  }
+
+  const brandsLocal = JSON.parse(localStorage.getItem('KAFELA_BRANDS_REGISTRY_V1') || '[]');
+  const updatedBrands = brandsLocal.map((b: any) =>
+    b.ownerId === ownerUid || b.slug === brandSlug || b.id === ownerUid
+      ? { ...b, saldo: newSaldo }
+      : b
+  );
+  localStorage.setItem('KAFELA_BRANDS_REGISTRY_V1', JSON.stringify(updatedBrands));
+
+  try {
+    const wsRaw = localStorage.getItem('KAFELA_PC_WORKSPACE_CACHE_V4');
+    if (wsRaw) {
+      const ws = JSON.parse(wsRaw);
+      if (ws.owner && (ws.owner.uid === ownerUid || ws.owner.id === ownerUid)) {
+        ws.owner.saldo = newSaldo;
+        localStorage.setItem('KAFELA_PC_WORKSPACE_CACHE_V4', JSON.stringify(ws));
+      }
+    }
+  } catch {}
+
+  if (firestoreError && !firestoreSaved) {
+    return {
+      success: false,
+      error: `Izin Firestore Ditolak (Missing or insufficient permissions).\n\nAturan di Firebase Console (proyek kafilasuci3) masih membatasi edit hanya untuk akun pemilik dokumen.\n\nSolusi: Buka Firebase Console > Firestore Database > Tab Rules > perbarui aturan 'match /owners/{ownerId}' menjadi 'allow read, write: if true;' lalu klik Publish.`,
+    };
+  }
+
+  return { success: true, firestoreSaved };
+}
+
+export async function addOwnerSaldo(
+  ownerUid: string,
+  amountToAdd: number,
+  brandSlug?: string
+): Promise<{ success: boolean; newSaldo?: number; error?: string; firestoreSaved?: boolean }> {
+  const init = initKafelaFirebase();
+  let currentSaldo = 0;
+
+  if (init) {
+    try {
+      const ownerRef = doc(init.db, 'owners', ownerUid);
+      const snap = await getDoc(ownerRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        currentSaldo = typeof d.saldo === 'number' ? d.saldo : (Number(d.saldo) || 0);
+      }
+    } catch (e) {
+      console.warn('Gagal membaca saldo saat ini dari Firestore:', e);
+    }
+  }
+
+  if (currentSaldo === 0) {
+    const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+    if (ownersLocal[ownerUid]) {
+      currentSaldo = ownersLocal[ownerUid].saldo || 0;
+    } else {
+      const brandsLocal = JSON.parse(localStorage.getItem('KAFELA_BRANDS_REGISTRY_V1') || '[]');
+      const match = brandsLocal.find((b: any) => b.ownerId === ownerUid || b.slug === brandSlug);
+      if (match && typeof match.saldo === 'number') currentSaldo = match.saldo;
+    }
+  }
+
+  const newSaldo = currentSaldo + amountToAdd;
+  const updateRes = await updateOwnerSaldo(ownerUid, newSaldo, brandSlug);
+  return { ...updateRes, newSaldo };
+}
+
+export async function toggleWebsiteActive(
+  ownerUid: string,
+  brandSlug: string,
+  isActive: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const init = initKafelaFirebase();
+  let firestoreSaved = false;
+  let firestoreError: string | null = null;
+
+  if (init) {
+    try {
+      const ownerRef = doc(init.db, 'owners', ownerUid);
+      await updateDoc(ownerRef, {
+        isWebsiteActive: isActive,
+        status: isActive ? 'AKTIF' : 'SUSPENDED',
+      });
+      firestoreSaved = true;
+    } catch (err: any) {
+      firestoreError = err?.message || String(err);
+      try {
+        const ownerRef = doc(init.db, 'owners', ownerUid);
+        await setDoc(
+          ownerRef,
+          {
+            isWebsiteActive: isActive,
+            status: isActive ? 'AKTIF' : 'SUSPENDED',
+          },
+          { merge: true }
+        );
+        firestoreSaved = true;
+        firestoreError = null;
+      } catch (e2: any) {
+        firestoreError = e2?.message || firestoreError;
+      }
+    }
+
+    if (brandSlug) {
+      try {
+        const brandRef = doc(init.db, 'brands_registry', brandSlug);
+        await setDoc(
+          brandRef,
+          {
+            status: isActive ? 'AKTIF' : 'SUSPENDED',
+            isWebsiteActive: isActive,
+          },
+          { merge: true }
+        );
+        firestoreSaved = true;
+      } catch (eBrand) {
+        console.warn('Toggle status di brands_registry:', eBrand);
+      }
+    }
+  }
+
+  const ownersLocal = JSON.parse(localStorage.getItem('KAFELA_OWNERS_CACHE_V1') || '{}');
+  if (ownersLocal[ownerUid]) {
+    ownersLocal[ownerUid].isWebsiteActive = isActive;
+    ownersLocal[ownerUid].status = isActive ? 'AKTIF' : 'SUSPENDED';
+    localStorage.setItem('KAFELA_OWNERS_CACHE_V1', JSON.stringify(ownersLocal));
+  }
+
+  const brandsLocal = JSON.parse(localStorage.getItem('KAFELA_BRANDS_REGISTRY_V1') || '[]');
+  const updatedBrands = brandsLocal.map((b: any) =>
+    b.ownerId === ownerUid || b.slug === brandSlug
+      ? { ...b, status: isActive ? 'AKTIF' : 'SUSPENDED', isWebsiteActive: isActive }
+      : b
+  );
+  localStorage.setItem('KAFELA_BRANDS_REGISTRY_V1', JSON.stringify(updatedBrands));
+
+  try {
+    const wsRaw = localStorage.getItem('KAFELA_PC_WORKSPACE_CACHE_V4');
+    if (wsRaw) {
+      const ws = JSON.parse(wsRaw);
+      if (ws.owner && (ws.owner.uid === ownerUid || ws.owner.id === ownerUid)) {
+        ws.owner.isWebsiteActive = isActive;
+        localStorage.setItem('KAFELA_PC_WORKSPACE_CACHE_V4', JSON.stringify(ws));
+      }
+    }
+  } catch {}
+
+  if (firestoreError && !firestoreSaved) {
+    return {
+      success: false,
+      error: `Izin Firestore Ditolak (Missing or insufficient permissions).\n\nAturan keamanan di Firebase Console kafilasuci3 masih membatasi akses edit. Silakan buka Firebase Console > Firestore Database > Rules > perbarui 'match /owners/{ownerId}' menjadi 'allow read, write: if true;' lalu Publish.`,
+    };
+  }
+
+  return { success: true };
+}
+
 
 

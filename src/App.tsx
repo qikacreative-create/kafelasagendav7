@@ -163,20 +163,8 @@ export default function App() {
     return 'PROFIL';
   });
 
-  // Mode Tampilan: Kasir Studio atau Super Admin Master Console
-  const [viewMode, setViewMode] = useState<'CASHIER' | 'SUPER_ADMIN'>(() => {
-    if (typeof window === 'undefined') return 'CASHIER';
-    const path = window.location.pathname.toLowerCase();
-    const search = new URLSearchParams(window.location.search);
-    return (
-      path.includes('super-admin') ||
-      search.get('mode') === 'super-admin' ||
-      search.get('page') === 'super-admin' ||
-      search.get('super_admin') === '1'
-    )
-      ? 'SUPER_ADMIN'
-      : 'CASHIER';
-  });
+  // Mode Tampilan: Selalu default ke Kasir Studio (Akses Super Admin hanya rahasia via 5x ketuk teks versi v4.10)
+  const [viewMode, setViewMode] = useState<'CASHIER' | 'SUPER_ADMIN'>('CASHIER');
 
   const [activeBrandSlug, setActiveBrandSlug] = useState<string>(() => {
     if (typeof window === 'undefined') return 'kfls';
@@ -311,6 +299,25 @@ export default function App() {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isPaketExpanded, setIsPaketExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v4.10)
+  const appVersionTapCountRef = useRef<number>(0);
+  const appVersionTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSecretVersionTapInApp = () => {
+    appVersionTapCountRef.current += 1;
+    if (appVersionTapTimerRef.current) clearTimeout(appVersionTapTimerRef.current);
+
+    if (appVersionTapCountRef.current >= 5) {
+      appVersionTapCountRef.current = 0;
+      setDrawerOpen(false);
+      setViewMode('SUPER_ADMIN');
+    } else {
+      appVersionTapTimerRef.current = setTimeout(() => {
+        appVersionTapCountRef.current = 0;
+      }, 2500);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -932,22 +939,8 @@ export default function App() {
     setActiveUserEmail(fbSession.email || '');
     setSessionMode('FIREBASE');
 
-    // Cek Role Super Admin di koleksi 'users' ATAU 'owners'
-    const fb = initKafelaFirebase();
-    if (fb) {
-      try {
-        const userDoc = await getDoc(doc(fb.db, 'users', fbSession.uid));
-        const ownerDoc = await getDoc(doc(fb.db, 'owners', fbSession.uid));
-        if (
-          (userDoc.exists() && userDoc.data().role === 'superadmin') ||
-          (ownerDoc.exists() && ownerDoc.data().role === 'superadmin')
-        ) {
-          setViewMode('SUPER_ADMIN');
-        }
-      } catch (e) {
-        console.warn('Gagal cek superadmin:', e);
-      }
-    }
+    // Pastikan selalu masuk ke Kasir Studio secara normal (Akses Super Admin HANYA via 5x ketuk teks versi v4.10)
+    setViewMode('CASHIER');
 
     // Jika ini hanya Reload Halaman (F5) dan Cache lokal untuk Owner ini masih segar (< 5 menit),
     // gunakan langsung Cache lokal (0 Read ke server!) agar super hemat kuota dan instan!
@@ -1669,8 +1662,9 @@ export default function App() {
             </span>
           </div>
           {activeUserEmail && (
-            <p className="text-[10px] text-slate-400 font-mono truncate pt-0">{activeUserEmail}</p>
-          )}
+<p className="text-[10px] text-slate-400 font-mono truncate pt-0">
+  {(activeUserEmail || '').split('@')[0]}
+</p>          )}
         </div>
 
         {/* Card Status Paket (Disembunyikan untuk Anggota / Crew) */}
@@ -1939,12 +1933,11 @@ if (isDrawer) setDrawerOpen(false);
         <div className="my-2 border-t border-white/10" />
 
         <div className="px-2 py-1 space-y-2">
-
           <PWAInstallButton />
         </div>
       </div>
 
-      {/* Footer Logout */}
+      {/* Footer Logout & Versi */}
       <div className="p-3 border-t border-white/10 mt-auto shrink-0">
         {sessionMode === 'DEMO' ? (
           <div className="space-y-1.5">
@@ -1981,6 +1974,17 @@ if (isDrawer) setDrawerOpen(false);
             <span>Keluar Akun</span>
           </button>
         )}
+
+        {/* Penanda Versi Aplikasi & Pemicu Stealth Super Admin (5x Ketuk) */}
+        <div className="pt-2 text-center select-none">
+          <span
+            onClick={handleSecretVersionTapInApp}
+            className="text-[11px] text-white/40 font-mono tracking-wider cursor-default hover:text-white/70 transition-colors inline-block px-2 py-0.5 rounded"
+            title="Kafela's Agenda"
+          >
+            v4.10
+          </span>
+        </div>
       </div>
     </div>
   );
