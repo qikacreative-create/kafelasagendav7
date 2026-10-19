@@ -1938,7 +1938,7 @@ if (isDrawer) setDrawerOpen(false);
       </div>
 
       {/* Footer Logout & Versi */}
-      <div className="p-3 border-t border-white/10 mt-auto shrink-0">
+      <div className="p-3 border-t border-white/10 mt-auto shrink-0 space-y-2">
         {sessionMode === 'DEMO' ? (
           <div className="space-y-1.5">
             <button
@@ -1974,6 +1974,39 @@ if (isDrawer) setDrawerOpen(false);
             <span>Keluar Akun</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={async () => {
+            if (isDrawer) setDrawerOpen(false);
+            if ('serviceWorker' in navigator) {
+              try {
+                setToastMessage('🔄 Memeriksa pembaruan sistem...');
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg) {
+                  await reg.update();
+                  if (reg.waiting || reg.installing) {
+                    setToastMessage('✨ Pembaruan baru ditemukan! Memuat ulang...');
+                    window.location.reload();
+                  } else {
+                    setToastMessage('✓ Aplikasi sudah menggunakan versi terbaru (v4.10).');
+                  }
+                } else {
+                  window.location.reload();
+                }
+                setTimeout(() => setToastMessage(null), 3500);
+              } catch (e) {
+                window.location.reload();
+              }
+            } else {
+              window.location.reload();
+            }
+          }}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer active:scale-[0.98] transition-all text-xs"
+        >
+          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+          <span>Cek Pembaruan Aplikasi</span>
+        </button>
 
         {/* Penanda Versi Aplikasi & Pemicu Stealth Super Admin (5x Ketuk) */}
         <div className="pt-2 text-center select-none">

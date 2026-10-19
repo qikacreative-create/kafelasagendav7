@@ -37,7 +37,7 @@ interface SuperAdminDashboardProps {
   onExitSuperAdmin: () => void;
 }
 
-const DEFAULT_MASTER_PIN = '889900';
+const DEFAULT_MASTER_PIN = '224224';
 const PIN_STORAGE_KEY = 'KAFELA_SUPERADMIN_AUTH_KEY';
 
 export function SuperAdminDashboard({
@@ -277,7 +277,7 @@ export function SuperAdminDashboard({
                   type="password"
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="PIN Master (889900)"
+                  placeholder="PIN Master ()"
                   className="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 rounded-xl px-4 py-3 text-sm font-mono text-center tracking-widest text-slate-100 focus:outline-none"
                   autoFocus
                 />

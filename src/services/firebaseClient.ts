@@ -1979,7 +1979,7 @@ export async function renewSubscriptionWithSaldo(
   tier: PaketLanggananTier,
   durationDays: number,
   price: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; newExpired?: number }> {
   const init = initKafelaFirebase();
   try {
     const ownerRef = init ? doc(init.db, 'owners', ownerUid) : null;
@@ -2046,7 +2046,7 @@ export async function renewSubscriptionWithSaldo(
     );
     localStorage.setItem('KAFELA_BRANDS_REGISTRY_V1', JSON.stringify(updatedBrands));
 
-    return { success: true };
+    return { success: true, newExpired };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, error: msg };

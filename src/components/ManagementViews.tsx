@@ -3463,7 +3463,11 @@ export const PengaturanStudioView: React.FC<{
                         setIsSavingToast(false);
                         if (res.success) {
                           notifySaved(`Berhasil memperpanjang paket ${p.tier}! Saldo telah dipotong.`);
-                          onUpdateOwner({ paketAktif: p.tier, saldo: currentSaldo - p.priceVal });
+                          onUpdateOwner({
+                            paketAktif: p.tier,
+                            saldo: currentSaldo - p.priceVal,
+                            tanggalLangganan: res.newExpired || (Math.max(owner.tanggalLangganan || Date.now(), Date.now()) + p.days * 24 * 60 * 60 * 1000),
+                          });
                         } else {
                           alert(res.error || 'Gagal memperpanjang paket.');
                         }

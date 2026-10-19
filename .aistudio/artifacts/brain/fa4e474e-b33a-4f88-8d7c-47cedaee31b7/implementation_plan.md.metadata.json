@@ -1,0 +1,6 @@
+{
+  "summary": "Revisi rencana penjelasan: Menjelaskan bahwa Cache-Control no-cache pada service-worker.js TIDAK memengaruhi atau membuat boros pembacaan (reads) Firestore sama sekali, melainkan hanya memastikan browser mengambil file pengatur cache terbaru saat pembaruan aplikasi dirilis.",
+  "updatedAt": "2026-10-18T23:15:14.312277262Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
