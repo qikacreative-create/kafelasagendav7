@@ -1,6 +1,8 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
+import path from 'path';
+import fs from 'fs';
 
 async function startServer() {
   const app = express();
@@ -25,13 +27,23 @@ async function startServer() {
     }
   });
 
-  // 2. Setup Vite (untuk frontend)
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
+  const isProduction = process.env.NODE_ENV === 'production';
+  const distPath = path.resolve(process.cwd(), 'dist');
 
-  app.use(vite.middlewares);
+  if (isProduction && fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    // 2. Setup Vite (untuk frontend development)
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+
+    app.use(vite.middlewares);
+  }
 
   app.listen(port, '0.0.0.0', () => {
     console.log(`Server running at http://0.0.0.0:${port}`);
@@ -39,3 +51,4 @@ async function startServer() {
 }
 
 startServer();
+

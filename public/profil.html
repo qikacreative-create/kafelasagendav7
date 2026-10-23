@@ -1620,6 +1620,7 @@
     </div>
 
     <div class="t-amour">
+        <div id="brutalistTicker" class="brutalist-ticker-bar">✨ OFFICIAL STUDIO PORTOFOLIO &bull; RESERVASI SEKARANG &bull; KAFELA AGENDA &bull; ABADIKAN MOMEN ISTIMEWA ANDA</div>
     
         <!-- NAVBAR ATAS (4 HALAMAN/SEKSI: LANDING PAGE, PORTOFOLIO, LAYANAN, PENUTUP) -->
         <nav class="am-nav">
@@ -1997,7 +1998,31 @@
     let listKaryaItems = [];
 
     const DEFAULT_PHOTOS = [
+        {
+            url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1600&q=90',
+            judul: 'Dokumentasi & Resepsi Pernikahan Elegan'
+        },
+        {
+            url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1600&q=90',
+            judul: 'Momen Intimate & Romantis Prewedding'
+        },
+        {
+            url: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1600&q=90',
+            judul: 'Potret Studio Wisuda & Keluarga Eksklusif'
+        },
+        {
+            url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=1600&q=90',
+            judul: 'Dekorasi & Suasana Event Spesial'
+        }
     ];
+
+    // Safety timeout untuk memastikan splash screen tertutup
+    setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        if (splash && splash.style.display !== 'none') {
+            splash.style.display = 'none';
+        }
+    }, 2500);
 
     // PINTU MASUK RAHASIA LOGIN KASIR / KRU
     let logoClickCount = 0;
@@ -2729,11 +2754,7 @@
 
             renderPaketHtml(listPaket);
         } catch (e) {
-            console.error(e);
-        }
-    }
-        } catch (e) {
-            console.error(e);
+            console.error("Gagal muat paket:", e);
         }
     }
 
@@ -2751,19 +2772,17 @@
         if (cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);
         const brand = window.ownerNamaBrand || 'Vendor';
         const text = encodeURIComponent(`Halo ${brand}, saya ingin konsultasi mengenai paket dan jadwal.`);
-        window.location.href = `whatsapp://send?phone=${cleanWa}&text=${text}`;
+        const url = cleanWa ? `https://wa.me/${cleanWa}?text=${text}` : `https://wa.me/?text=${text}`;
+        window.open(url, '_blank');
     };
-
-    // Update the HTML button content (I need to update the HTML itself, not just the function)
-    // Actually the button is in the HTML. I'll search for it and replace it.
-
 
     window.bukaFormBooking = function(namaPaket, deskripsiPaket) {
         if (window.customBookingUrl) {
             window.open(window.customBookingUrl, '_blank');
             return;
         }
-        let url = `/booking.html?id=${encodeURIComponent(idParam)}`;
+        const targetId = idParam || 'demo';
+        let url = `/booking.html?id=${encodeURIComponent(targetId)}`;
         if (temaOverride) url += `&tema=${encodeURIComponent(temaOverride)}`;
         if (namaPaket) url += `&paket=${encodeURIComponent(namaPaket)}`;
         if (deskripsiPaket) url += `&desc=${encodeURIComponent(deskripsiPaket)}`;
@@ -2775,7 +2794,8 @@
             window.open(window.customBookingUrl, '_blank');
             return;
         }
-        let url = `/booking.html?id=${encodeURIComponent(idParam)}&lokasi=${encodeURIComponent(namaLokasi)}`;
+        const targetId = idParam || 'demo';
+        let url = `/booking.html?id=${encodeURIComponent(targetId)}&lokasi=${encodeURIComponent(namaLokasi)}`;
         if (temaOverride) url += `&tema=${encodeURIComponent(temaOverride)}`;
         window.location.href = url;
     };

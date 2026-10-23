@@ -96,6 +96,9 @@ import {
   PengaturanStudioView,
   PengaturanSubTab,
 } from './components/ManagementViews';
+import { SubscriptionExpiredScreen } from './components/SubscriptionExpiredScreen';
+import { TopUpModal } from './components/TopUpModal';
+
 
 type ActiveNavTab =
   | 'KALENDER'
@@ -299,6 +302,10 @@ export default function App() {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isPaketExpanded, setIsPaketExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isReadOnlyBypass, setIsReadOnlyBypass] = useState(false);
+  const [isTestExpiredActive, setIsTestExpiredActive] = useState(false);
+  const [isTopUpGlobalOpen, setIsTopUpGlobalOpen] = useState(false);
+
 
   // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v4.10)
   const appVersionTapCountRef = useRef<number>(0);
@@ -1075,6 +1082,12 @@ export default function App() {
 
   // Simpan / Update Jadwal
   const handleSaveJadwal = async (jadwalBaru: JadwalFotografi, autoOpenStruk = false) => {
+    if (owner.tanggalLangganan && owner.tanggalLangganan > 0 && owner.tanggalLangganan < Date.now() && isReadOnlyBypass) {
+      alert('Masa aktif langganan studio Anda telah berakhir. Anda sedang berada dalam Mode Darurat (Baca-Saja). Silakan perpanjang paket untuk mencatat atau mengubah jadwal.');
+      setIsTestExpiredActive(true);
+      return;
+    }
+
     setJadwalAktif((prev) => {
       const exists = prev.some((j) => j.idJadwal === jadwalBaru.idJadwal);
       if (exists) {
@@ -1601,10 +1614,50 @@ export default function App() {
   }
 
   const isKruAnggota = userRole === 'anggota';
+  const isSubscriptionExpired = Boolean(
+    owner.tanggalLangganan &&
+    owner.tanggalLangganan > 0 &&
+    owner.tanggalLangganan < Date.now()
+  );
   const sisaHariLangganan = Math.max(
     0,
     Math.ceil((owner.tanggalLangganan - Date.now()) / (1000 * 60 * 60 * 24))
   );
+
+  const handlePerformLogout = async () => {
+    if (sessionMode === 'DEMO') {
+      handleExitDemo();
+    } else {
+      if (sessionMode === 'FIREBASE') {
+        await logoutFirebaseSession();
+      }
+      localStorage.removeItem(LOCAL_CACHE_KEY);
+      setSessionMode(null);
+    }
+  };
+
+  const handleUpdateOwnerProfile = async (updates: Partial<OwnerProfile>) => {
+    setOwner((prev) => ({ ...prev, ...updates }));
+    if (sessionMode === 'FIREBASE') {
+      await saveOwnerProfileToFirebase(targetOwnerId, updates);
+    }
+  };
+
+  // HALAMAN HABIS LANGGANAN: Aktif jika masa langganan habis (dan belum bypass mode baca-saja darurat) ATAU sedang simulasi/pratinjau
+  if ((isSubscriptionExpired && !isReadOnlyBypass) || isTestExpiredActive) {
+    return (
+      <SubscriptionExpiredScreen
+        owner={owner}
+        userRole={userRole}
+        onUpdateOwner={handleUpdateOwnerProfile}
+        onEnterReadOnly={() => setIsReadOnlyBypass(true)}
+        onLogout={handlePerformLogout}
+        isTestPreview={isTestExpiredActive}
+        onCloseTestMode={() => setIsTestExpiredActive(false)}
+      />
+    );
+  }
+
 
   const cardOpacityVal = typeof owner.opasitasKartu === 'number'
     ? owner.opasitasKartu
@@ -2061,6 +2114,57 @@ if (isDrawer) setDrawerOpen(false);
       >
         <OfflineIndicator />
         <PWAInstallFloatingBanner />
+
+        {/* Banner Peringatan Darurat (Baca-Saja) Jika Langganan Habis tapi di-Bypass */}
+        {isSubscriptionExpired && isReadOnlyBypass && (
+          <div className="w-full bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between gap-2 shadow-lg z-40 border-b border-red-500/50">
+            <div className="flex items-center gap-2">
+              <span className="text-base">⚠️</span>
+              <span>
+                <b>PERINGATAN:</b> Masa aktif langganan studio Anda telah berakhir. Anda sedang berada dalam <b>Mode Darurat (Baca-Saja)</b>.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsTestExpiredActive(true)}
+              className="px-3.5 py-1 bg-white text-slate-950 hover:bg-slate-100 rounded-lg font-black text-xs cursor-pointer shadow transition active:scale-95"
+            >
+              Perpanjang / Top-Up Sekarang →
+            </button>
+          </div>
+        )}
+
+        {/* Early Warning Banner (Pengingat H-3 Sebelum Habis) */}
+        {!isSubscriptionExpired && sisaHariLangganan <= 3 && sisaHariLangganan > 0 && !isKruAnggota && (
+          <div className="w-full bg-amber-500/15 border-b border-amber-500/30 text-amber-200 px-4 py-1.5 text-xs font-medium flex flex-wrap items-center justify-between gap-2 z-40 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <span>⏱️</span>
+              <span>
+                Pengingat Masa Aktif: Langganan studio Anda tersisa <b>{sisaHariLangganan} hari lagi</b>.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsTopUpGlobalOpen(true)}
+                className="px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer transition"
+              >
+                + Top-Up Saldo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPengaturanSubTab('PAKET');
+                  setActiveTab('PENGATURAN');
+                }}
+                className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold cursor-pointer transition"
+              >
+                Perpanjang Sekarang →
+              </button>
+            </div>
+          </div>
+        )}
+
 
         {/* ===================================================================== */}
         {/* HEADER ATAS:                                                          */}
@@ -3294,6 +3398,7 @@ if (isDrawer) setDrawerOpen(false);
             owner={owner}
             rekening={rekening}
             initialSubTab={pengaturanSubTab}
+            onTriggerTestExpiredScreen={() => setIsTestExpiredActive(true)}
             onUpdateOwner={async (updates) => {
               // Jika paket Standar, blokir perubahan tema
               if (owner.paketAktif === 'Starter' && updates.temaWeb) {
@@ -4688,6 +4793,13 @@ if (isDrawer) setDrawerOpen(false);
           onClose={() => setSignatureModalOpen(false)}
         />
       )}
+
+      {/* Global Top-Up Modal */}
+      <TopUpModal
+        isOpen={isTopUpGlobalOpen}
+        onClose={() => setIsTopUpGlobalOpen(false)}
+        owner={owner}
+      />
 
       {/* Floating Toast Notification */}
       {toastMessage && (

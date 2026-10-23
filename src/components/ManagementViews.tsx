@@ -48,6 +48,9 @@ import {
 } from '../utils/formatters';
 import { ProfessionPresetKey } from '../services/demoDataSeeder';
 import { checkAndIncrementActions, renewSubscriptionWithSaldo, submitTopUpRequest } from '../services/firebaseClient';
+import { TopUpModal } from './TopUpModal';
+import { SubscriptionExpiredScreen } from './SubscriptionExpiredScreen';
+
 
 /* ============================================================================
  * 1. LAPORAN KEUANGAN & PIUTANG VIEW (Persis LaporanActivity.kt — 0 Read!)
@@ -1313,6 +1316,7 @@ export const PengaturanStudioView: React.FC<{
   onUpdateRekening: (rek: RekeningModel) => Promise<void> | void;
   onOpenSignatureModal: () => void;
   onSwitchDemoProfession?: (preset: ProfessionPresetKey) => void;
+  onTriggerTestExpiredScreen?: () => void;
 }> = ({
   owner,
   rekening,
@@ -1320,13 +1324,13 @@ export const PengaturanStudioView: React.FC<{
   onUpdateOwner,
   onUpdateRekening,
   onOpenSignatureModal,
+  onTriggerTestExpiredScreen,
 }) => {
   const [subTab, setSubTab] = useState<PengaturanSubTab>(initialSubTab);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
-  const [topUpNominal, setTopUpNominal] = useState('');
-  const [topUpBukti, setTopUpBukti] = useState('');
-  const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
+  const [isTestExpiredLocal, setIsTestExpiredLocal] = useState(false);
   const [durasiPaketStudio, setDurasiPaketStudio] = useState<'BULANAN' | 'TAHUNAN'>('BULANAN');
+
 
   React.useEffect(() => {
     setSubTab(initialSubTab);
@@ -3353,15 +3357,19 @@ export const PengaturanStudioView: React.FC<{
       </div>
     </div>
 
-    {/* Tombol Top-Up */}
-    <button
-      type="button"
-      onClick={() => setIsTopUpModalOpen(true)}
-      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
-    >
-      <span>+</span>
-      <span>Top-Up Saldo</span>
-    </button>
+    {/* Tombol Aksi Saldo */}
+    <div className="flex flex-wrap items-center gap-2">
+
+
+      <button
+        type="button"
+        onClick={() => setIsTopUpModalOpen(true)}
+        className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
+      >
+        <span>+</span>
+        <span>Top-Up Saldo</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -3488,254 +3496,23 @@ export const PengaturanStudioView: React.FC<{
         </div>
       )}
 
-       {/* MODAL TOP-UP SALDO DENGAN BUKTI TRANSFER */}
-      {isTopUpModalOpen && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 p-1 mt-2 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsTopUpModalOpen(false);
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="topup-title"
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl"
-          >
-            {/* HEADER */}
-            <div className="mb-1 flex items-center justify-between border-b border-slate-800 pb-1">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-lg">
-                  💳
-                </div>
-                <div>
-                  <h3
-                    id="topup-title"
-                    className="text-sm font-bold text-white"
-                  >
-                    Top-Up Saldo
-                  </h3>
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    Isi saldo dengan transfer manual
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Tutup modal"
-                onClick={() => setIsTopUpModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-xl text-slate-400 transition hover:bg-slate-800 hover:text-white"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              {/* INFORMASI PEMBAYARAN */}
-              <div className="space-y-2 rounded-xl border border-amber-500/20 bg-slate-950 py-2 px-4">
-            
-                <p className="leading-relaxed text-slate-400">
-                  Transfer sesuai nominal top-up ke salah satu rekening resmi berikut.
-                </p>
-
-                {/* BRI */}
-                <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Bank BRI
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText("410801008396530");
-                      }}
-                      className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
-                    >
-                      Salin rekening
-                    </button>
-                  </div>
-
-                  <p className="break-all font-mono text-sm font-bold text-amber-400">
-                    4108 0100 8396 530
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-300">
-                    a.n. Iqbal S Nuha
-                  </p>
-                </div>
-
-                {/* DANA */}
-                <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      DANA
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText("085890261536");
-                      }}
-                      className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
-                    >
-                      Salin nomor
-                    </button>
-                  </div>
-
-                  <p className="font-mono text-sm font-bold text-amber-400">
-                    085890261536
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-300">
-                    a.n. Suci S Kusumah
-                  </p>
-                </div>
-
-                <p className="text-[10px] leading-relaxed text-slate-500">
-                  Pastikan nomor rekening dan nama penerima benar.
-                </p>
-              </div>
-
-{/* INPUT NOMINAL */}
-<div className="space-y-3 px-3">
-  <div className="flex items-center gap-3">
-    <label
-      htmlFor="topup-nominal"
-      className="shrink-0 font-semibold text-slate-200"
-    >
-      Nominal Top-Up
-    </label>
-
-    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 transition focus-within:border-amber-500">
-      <span className="shrink-0 font-bold text-slate-400">
-        Rp
-      </span>
-
-      <input
-        id="topup-nominal"
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        placeholder="Contoh: 50000"
-        value={topUpNominal}
-        onChange={(e) => {
-          setTopUpNominal(e.target.value.replace(/\D/g, ""));
-        }}
-        className="min-w-0 flex-1 bg-transparent py-3 font-mono text-sm font-bold text-white outline-none placeholder:font-normal placeholder:text-slate-600"
+      {/* MODAL TOP-UP SALDO REUSABLE */}
+      <TopUpModal
+        isOpen={isTopUpModalOpen}
+        onClose={() => setIsTopUpModalOpen(false)}
+        owner={owner}
       />
-    </div>
-  </div>
-             
 
-                {/* PILIHAN NOMINAL */}
-                <div>
-                  <p className="mb-2 text-[10px] font-semibold  tracking-wider text-slate-500">
-                    Pilih nominal cepat - minimal top-up Rp. 10.000
-                  </p>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {[50000, 100000, 250000, 500000].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setTopUpNominal(String(amt))}
-                        className={`rounded-lg border px-1 py-2 text-[10px] font-bold transition ${
-                          topUpNominal === String(amt)
-                            ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
-                        }`}
-                      >
-                        Rp {(amt / 1000).toFixed(0)}rb
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* RINGKASAN NOMINAL */}
-                {Number(topUpNominal) >= 10000 &&
-                  Number.isSafeInteger(Number(topUpNominal)) && (
-                    <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                      <span className="text-slate-400">
-                        Total transfer
-                      </span>
-                      <span className="font-mono font-bold text-emerald-400">
-                        Rp {Number(topUpNominal).toLocaleString("id-ID")}
-                      </span>
-                    </div>
-                  )}
-
-                {topUpNominal !== "" &&
-                  (!Number.isSafeInteger(Number(topUpNominal)) ||
-                    Number(topUpNominal) < 10000) && (
-                    <p className="text-[11px] text-red-400">
-                      Nominal minimal adalah Rp10.000.
-                    </p>
-                  )}
-              </div>
-
-              {/* CATATAN */}
-              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <p className="text-[10px] leading-relaxed text-slate-400">
-                  <span className="font-bold text-amber-400">
-                    Penting:
-                  </span>{" "}
-                  Setelah transfer, kirim konfirmasi melalui WhatsApp dan lampirkan bukti transfer secara manual. Saldo akan diperbarui setelah pembayaran diverifikasi admin.
-                </p>
-              </div>
-
-              {/* TOMBOL AKSI */}
-              <div className="flex gap-2 border-t border-slate-800 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsTopUpModalOpen(false)}
-                  className="rounded-xl bg-slate-800 px-4 py-3 font-bold text-slate-300 transition hover:bg-slate-700"
-                >
-                  Batal
-                </button>
-
-                <button
-                  type="button"
-                  disabled={
-                    !Number.isSafeInteger(Number(topUpNominal)) ||
-                    Number(topUpNominal) < 10000
-                  }
-                  onClick={() => {
-                    const num = Number(topUpNominal);
-
-                    if (
-                      !Number.isSafeInteger(num) ||
-                      num < 10000
-                    ) {
-                      return;
-                    }
-
-                    const pesan = [
-                      "Halo Admin, saya ingin melakukan top-up saldo.",
-                      "",
-                      `Nama: ${owner.namaOwner}`,
-                      `Brand Studio: ${owner.namaBrand}`,
-                      `Nominal Top-Up: Rp ${num.toLocaleString("id-ID")}`,
-                      "",
-                      "Saya akan melampirkan bukti transfer pada chat ini.",
-                      "Mohon verifikasi pembayaran saya. Terima kasih."
-                    ].join("\n");
-
-                    const url = `https://wa.me/6283132304649?text=${encodeURIComponent(pesan)}`;
-
-                    window.open(url, "_blank", "noopener,noreferrer");
-
-                    setIsTopUpModalOpen(false);
-                    setTopUpNominal("");
-                  }}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <span>💬</span>
-                  <span>Kirim via WhatsApp</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* PRATINJAU HALAMAN HABIS LANGGANAN */}
+      {isTestExpiredLocal && (
+        <SubscriptionExpiredScreen
+          owner={owner}
+          userRole="owner"
+          onUpdateOwner={onUpdateOwner}
+          onLogout={() => setIsTestExpiredLocal(false)}
+          isTestPreview={true}
+          onCloseTestMode={() => setIsTestExpiredLocal(false)}
+        />
       )}
     
     </div>
