@@ -20,7 +20,10 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  initializeFirestore,
   onSnapshot,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
@@ -94,7 +97,21 @@ export function initKafelaFirebase(customCfg?: FirebaseCustomConfig): {
     const existing = getApps().find((a) => a.name === 'Kafelas AgendaPC');
     cachedApp = existing || initializeApp(cfg, 'Kafelas AgendaPC');
     cachedAuth = getAuth(cachedApp);
-    cachedDb = getFirestore(cachedApp);
+
+    if (!cachedDb) {
+      try {
+        // Aktifkan Native Persistent Cache Resmi Google Firebase
+        // Otomatis menahan & menyinkronkan mutasi transaksi saat offline tanpa risiko stuck queue
+        cachedDb = initializeFirestore(cachedApp, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        });
+      } catch {
+        // Fallback jika sudah pernah terinisialisasi
+        cachedDb = getFirestore(cachedApp);
+      }
+    }
     return { app: cachedApp, auth: cachedAuth, db: cachedDb };
   } catch (err) {
     console.error('Gagal menginisialisasi Firebase:', err);
@@ -493,12 +510,12 @@ export async function fetchOwnerWorkspaceFromFirebase(
     opasitasKartu: typeof oData.opasitasKartu === 'number' ? oData.opasitasKartu : undefined,
   };
 
-  // Cache Base64 logo & TTD ke IndexedDB secara background jika tersedia
+  // Cache Base64 logo & TTD ke IndexedDB secara background jika tersedia (terisolasi per-owner)
   if (owner.logoBrandUrl && owner.logoBrandUrl.startsWith('data:')) {
-    saveMedia('logo', owner.logoBrandUrl).catch(() => {});
+    saveMedia('logo', owner.logoBrandUrl, targetOwnerId).catch(() => {});
   }
   if (owner.ttdUrl && owner.ttdUrl.startsWith('data:')) {
-    saveMedia('ttd', owner.ttdUrl).catch(() => {});
+    saveMedia('ttd', owner.ttdUrl, targetOwnerId).catch(() => {});
   }
 
   // 2. Baca Rekening

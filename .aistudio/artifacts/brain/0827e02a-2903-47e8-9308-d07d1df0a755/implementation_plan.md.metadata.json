@@ -1,0 +1,6 @@
+{
+  "summary":  "Revisi rencana arsitektur: Menjawab pertanyaan ketangguhan vs kerapuhan. Memilih pendekatan Native Firestore Persistent Cache bawaan Google + Indikator Status Jaringan Ringan alih-alih custom queue rumit, sehingga aplikasi 100% lebih tangguh, bebas dari risiko antrean macet/konflik data, dan tetap bisa beroperasi offline secara mulus.",
+  "updatedAt":  "2026-10-29T06:40:19.215271636Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

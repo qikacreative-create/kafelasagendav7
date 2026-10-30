@@ -485,12 +485,38 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
 
 export const OfflineIndicator: React.FC = () => {
   const isOnline = useOnlineStatus();
-  if (isOnline) return null;
+  const [wasOffline, setWasOffline] = useState(false);
+  const [showRestored, setShowRestored] = useState(false);
+
+  useEffect(() => {
+    if (!isOnline) {
+      setWasOffline(true);
+      setShowRestored(false);
+    } else if (wasOffline) {
+      setShowRestored(true);
+      const t = setTimeout(() => {
+        setShowRestored(false);
+        setWasOffline(false);
+      }, 4000);
+      return () => clearTimeout(t);
+    }
+  }, [isOnline, wasOffline]);
+
+  if (isOnline && !showRestored) return null;
+
+  if (showRestored) {
+    return (
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl bg-emerald-600/95 border border-emerald-400 px-4 py-2 text-xs font-bold text-white shadow-2xl backdrop-blur-md">
+        <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+        <span>Koneksi Pulih &bull; Sinkronisasi Cloud Firebase Aktif</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg">
-      <WifiOff className="w-4 h-4 shrink-0" />
-      <span>Mode Offline Aktif — Menggunakan Data Cache Lokal</span>
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl bg-amber-500/95 border border-amber-300 px-4 py-2 text-xs font-bold text-slate-950 shadow-2xl backdrop-blur-md">
+      <WifiOff className="w-4 h-4 text-slate-950 shrink-0" />
+      <span>Mode Offline &bull; Transaksi Tersimpan Aman di HP &amp; Otomatis Tersinkron Saat Online</span>
     </div>
   );
 };

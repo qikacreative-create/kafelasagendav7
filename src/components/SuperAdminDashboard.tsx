@@ -301,7 +301,7 @@ export function SuperAdminDashboard({
             >
               ← Kembali ke Kasir Studio
             </button>
-            <span className="font-mono text-[11px] text-slate-600">v4.10 SuperAdmin</span>
+            <span className="font-mono text-[11px] text-slate-600">v.4.15 SuperAdmin</span>
           </div>
         </div>
       </div>

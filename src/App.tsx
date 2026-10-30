@@ -33,6 +33,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 import {
   AnggotaTimModel,
   BrandRegistryItem,
@@ -108,7 +109,31 @@ type ActiveNavTab =
   | 'TIM'
   | 'PENGATURAN';
 
-const LOCAL_CACHE_KEY = 'KAFELA_PC_WORKSPACE_CACHE_V4';
+const SESSION_META_KEY = 'KAFELA_SESSION_META_V5';
+const getWorkspaceCacheKey = (ownerId: string) => `KAFELA_WORKSPACE_V5_${ownerId || 'default'}`;
+const LEGACY_CACHE_KEY = 'KAFELA_PC_WORKSPACE_CACHE_V4';
+
+function loadInitialWorkspaceCache() {
+  try {
+    const metaRaw = localStorage.getItem(SESSION_META_KEY);
+    const legacyRaw = localStorage.getItem(LEGACY_CACHE_KEY);
+    let meta: any = null;
+    if (metaRaw) {
+      meta = JSON.parse(metaRaw);
+    } else if (legacyRaw) {
+      meta = JSON.parse(legacyRaw);
+    }
+
+    if (meta && (meta.sessionMode === 'FIREBASE' || meta.sessionMode === 'DEMO')) {
+      const targetId = meta.targetOwnerId;
+      const wsRaw = targetId ? localStorage.getItem(getWorkspaceCacheKey(targetId)) : null;
+      const ws = wsRaw ? JSON.parse(wsRaw) : (legacyRaw ? JSON.parse(legacyRaw) : null);
+      return { meta, ws };
+    }
+  } catch {}
+  return null;
+}
+
 const DAFTAR_WARNA_TEMA_APK = [
   // 1. Klasik & Paling Seimbang (Andalan Utama)
   { nama: 'Slate Elegan (Default)', kode: '#2C3E50' },
@@ -124,37 +149,40 @@ const DAFTAR_WARNA_TEMA_APK = [
 
   // 3. Nuansa Hijau & Teal Mewah (Fresh & Studio Vibe)
   { nama: 'Emerald Studio Luxe', kode: '#065F46' },
-  { nama: 'Deep Teal Samudra', kode: '#115E59' },
   { nama: 'Forest Pine Rich', kode: '#064E3B' },
-  { nama: 'Dark Mint Elegance', kode: '#042F2E' },
 
   // 4. Nuansa Ungu & Magenta Aesthetic (Creative & Classy)
   { nama: 'Royal Amethyst', kode: '#4C1D95' },
-  { nama: 'Deep Plum Velvet', kode: '#581C87' },
   { nama: 'Cosmic Violet', kode: '#3B0764' },
   { nama: 'Burgundy Wine Rich', kode: '#641E16' },
 
   // 5. Nuansa Hangat / Warm (Coffee, Bronze & Earthy)
   { nama: 'Espresso Kopi Mewah', kode: '#4E342E' },
-  { nama: 'Sunset Bronze', kode: '#7C2D12' },
   { nama: 'Terracotta Bakar', kode: '#9A3412' },
   { nama: 'Golden Amber Dark', kode: '#78350F' },
 ];
 
 
 export default function App() {
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegistered(r) {
+      console.log('SW Registered:', r);
+    },
+    onRegisterError(error) {
+      console.log('SW registration error', error);
+    },
+  });
+
+  // Muat cache workspace awal yang terisolasi per owner
+  const initialCache = useMemo(() => loadInitialWorkspaceCache(), []);
+  const initialDemo = useMemo(() => generateDemoWorkspace('FOTO'), []);
+
   // Mode Sesi: dipulihkan otomatis dari LocalStorage agar saat Reload tidak terlempar ke Login
   const [sessionMode, setSessionMode] = useState<'DEMO' | 'FIREBASE' | null>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.sessionMode === 'FIREBASE' || parsed.sessionMode === 'DEMO') {
-          return parsed.sessionMode;
-        }
-      }
-    } catch {}
-    return null;
+    return initialCache?.meta?.sessionMode || null;
   });
 
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
@@ -166,7 +194,7 @@ export default function App() {
     return 'PROFIL';
   });
 
-  // Mode Tampilan: Selalu default ke Kasir Studio (Akses Super Admin hanya rahasia via 5x ketuk teks versi v4.10)
+  // Mode Tampilan: Selalu default ke Kasir Studio (Akses Super Admin hanya rahasia via 5x ketuk teks versi v.4.15)
   const [viewMode, setViewMode] = useState<'CASHIER' | 'SUPER_ADMIN'>('CASHIER');
 
   const [activeBrandSlug, setActiveBrandSlug] = useState<string>(() => {
@@ -187,96 +215,41 @@ export default function App() {
   });
 
   const [targetOwnerId, setTargetOwnerId] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).targetOwnerId || 'demo-owner-kafela-001';
-    } catch {}
-    return 'demo-owner-kafela-001';
+    return initialCache?.meta?.targetOwnerId || 'demo-owner-kafela-001';
   });
 
   const [userRole, setUserRole] = useState<UserRoleType>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).userRole || 'owner';
-    } catch {}
-    return 'owner';
+    return initialCache?.meta?.userRole || 'owner';
   });
   const [activeUserName, setActiveUserName] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw).activeUserName;
-        if (saved) return saved === 'Owner ' ? 'Owner' : saved;
-      }
-    } catch {}
-    return 'Iqbal Saefinnuha';
+    const saved = initialCache?.meta?.activeUserName;
+    return saved ? (saved === 'Owner ' ? 'Owner' : saved) : 'Iqbal Saefinnuha';
   });
   const [activeUserEmail, setActiveUserEmail] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).activeUserEmail || '';
-    } catch {}
-    return '';
+    return initialCache?.meta?.activeUserEmail || '';
   });
 
-  // Data Utama Workspace (Disimpan di RAM + LocalStorage Cache agar 0 Read saat pindah menu)
-  const initialDemo = useMemo(() => generateDemoWorkspace('FOTO'), []);
+  // Data Utama Workspace (Disimpan di RAM + LocalStorage Cache terisolasi per ID Studio)
   const [owner, setOwner] = useState<OwnerProfile>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).owner || initialDemo.owner;
-    } catch {}
-    return initialDemo.owner;
+    return initialCache?.ws?.owner || initialDemo.owner;
   });
   const [rekening, setRekening] = useState<RekeningModel>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).rekening || initialDemo.rekening;
-    } catch {}
-    return {
-      bankUtama: 'BRI',
-      rekUtama: '4108 0100 8396 530',
-      namaUtama: 'Iqbal saefin nuha',
-      bankAlternatif: 'DANA',
-      rekAlternatif: '0858-9026-1536',
-      namaAlternatif: 'Suci K Kusumah',
-      linkPembayaran: '',
-      catatanRekening: '',
-    };
+    return initialCache?.ws?.rekening || initialDemo.rekening;
   });
   const [paketList, setPaketList] = useState<PaketLayanan[]>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).paketList || initialDemo.paketList;
-    } catch {}
-    return initialDemo.paketList;
+    return initialCache?.ws?.paketList || initialDemo.paketList;
   });
   const [jadwalAktif, setJadwalAktif] = useState<JadwalFotografi[]>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.sessionMode === 'DEMO' && Array.isArray(parsed.jadwalAktif) && parsed.jadwalAktif.length < 8) {
-          return initialDemo.jadwalAktif;
-        }
-        return parsed.jadwalAktif || initialDemo.jadwalAktif;
-      }
-    } catch {}
-    return initialDemo.jadwalAktif;
+    if (initialCache?.ws?.sessionMode === 'DEMO' && Array.isArray(initialCache.ws.jadwalAktif) && initialCache.ws.jadwalAktif.length < 8) {
+      return initialDemo.jadwalAktif;
+    }
+    return initialCache?.ws?.jadwalAktif || initialDemo.jadwalAktif;
   });
   const [jadwalArsip, setJadwalArsip] = useState<JadwalFotografi[]>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).jadwalArsip || initialDemo.jadwalArsip;
-    } catch {}
-    return initialDemo.jadwalArsip;
+    return initialCache?.ws?.jadwalArsip || initialDemo.jadwalArsip;
   });
   const [timList, setTimList] = useState<AnggotaTimModel[]>(() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-      if (raw) return JSON.parse(raw).timList || initialDemo.timList;
-    } catch {}
-    return initialDemo.timList;
+    return initialCache?.ws?.timList || initialDemo.timList;
   });
 
   // Statistik Anti-Boncos
@@ -307,7 +280,7 @@ export default function App() {
   const [isTopUpGlobalOpen, setIsTopUpGlobalOpen] = useState(false);
 
 
-  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v4.10)
+  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v.4.15)
   const appVersionTapCountRef = useRef<number>(0);
   const appVersionTapTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -782,14 +755,23 @@ export default function App() {
     fabChoiceOpen,
   ]);
 
-  // Simpan otomatis ke LocalStorage Cache PC beserta status sesi agar Reload tidak mental ke Login
+  // Simpan otomatis ke LocalStorage Cache PC terisolasi per owner dengan proteksi anti-race condition
   useEffect(() => {
-    if (!sessionMode) return;
+    if (!sessionMode || !targetOwnerId) return;
+
+    // RACE CONDITION GUARD:
+    // Pastikan owner di state memang milik targetOwnerId sebelum menyimpan ke cache!
+    // Jika user baru login dan state owner masih milik studio sebelumnya, batalkan penyimpanan.
+    if (sessionMode === 'FIREBASE' && owner.uid && owner.uid !== targetOwnerId) {
+      return;
+    }
+
     try {
-      const existingRaw = localStorage.getItem(LOCAL_CACHE_KEY);
+      const targetCacheKey = getWorkspaceCacheKey(targetOwnerId);
+      const existingRaw = localStorage.getItem(targetCacheKey);
       const existingCachedAt = existingRaw ? JSON.parse(existingRaw).cachedAt || Date.now() : Date.now();
       localStorage.setItem(
-        LOCAL_CACHE_KEY,
+        targetCacheKey,
         JSON.stringify({
           sessionMode,
           targetOwnerId,
@@ -803,6 +785,16 @@ export default function App() {
           jadwalAktif,
           jadwalArsip,
           timList,
+        })
+      );
+      localStorage.setItem(
+        SESSION_META_KEY,
+        JSON.stringify({
+          sessionMode,
+          targetOwnerId,
+          userRole,
+          activeUserName,
+          activeUserEmail,
         })
       );
     } catch {}
@@ -863,8 +855,9 @@ export default function App() {
 
     // Simpan data workspace demo ke LocalStorage & SessionStorage agar web profil demo & reload berfungsi optimal
     try {
+      const demoCacheKey = getWorkspaceCacheKey(seeded.owner.uid);
       localStorage.setItem(
-        LOCAL_CACHE_KEY,
+        demoCacheKey,
         JSON.stringify({
           sessionMode: 'DEMO',
           targetOwnerId: seeded.owner.uid,
@@ -877,6 +870,16 @@ export default function App() {
           jadwalAktif: seeded.jadwalAktif,
           jadwalArsip: seeded.jadwalArsip,
           timList: seeded.timList,
+        })
+      );
+      localStorage.setItem(
+        SESSION_META_KEY,
+        JSON.stringify({
+          sessionMode: 'DEMO',
+          targetOwnerId: seeded.owner.uid,
+          userRole: 'owner',
+          activeUserName: seeded.owner.namaOwner,
+          activeUserEmail: '',
         })
       );
       const demoProfilePayload = JSON.stringify({
@@ -920,16 +923,22 @@ export default function App() {
 
   const handleExitDemo = () => {
     try {
-      localStorage.removeItem(LOCAL_CACHE_KEY);
+      localStorage.removeItem(SESSION_META_KEY);
+      localStorage.removeItem(getWorkspaceCacheKey(targetOwnerId));
+      localStorage.removeItem(LEGACY_CACHE_KEY);
       sessionStorage.removeItem('demo_profile_data');
       sessionStorage.removeItem('current_owner_preview_draft');
     } catch {}
+    setJadwalAktif([]);
+    setJadwalArsip([]);
+    setPaketList([]);
+    setTimList([]);
     setSessionMode(null);
     setToastMessage('Keluar dari Mode Demo');
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // Start Mode Firebase Asli (dengan Smart Cache 0-Read saat Reload)
+  // Start Mode Firebase Asli (dengan Smart Cache 0-Read saat Reload dan isolasi per-owner)
   const handleLoginFirebaseSuccess = async (
     fbSession: {
       uid: string;
@@ -940,39 +949,71 @@ export default function App() {
     },
     isAutoReload = false
   ) => {
+    const isSwitchingOwner = targetOwnerId !== fbSession.targetOwnerId;
+    let existingTargetCache: any = null;
+    try {
+      const rawTargetCache = localStorage.getItem(getWorkspaceCacheKey(fbSession.targetOwnerId));
+      if (rawTargetCache) {
+        existingTargetCache = JSON.parse(rawTargetCache);
+      }
+    } catch {}
+
+    // Jika berganti akun owner di HP/PC yang sama, segera reset state lama agar tidak ada kebocoran visual data
+    if (isSwitchingOwner) {
+      if (existingTargetCache && existingTargetCache.owner) {
+        setOwner(existingTargetCache.owner);
+        setRekening(existingTargetCache.rekening || initialDemo.rekening);
+        setPaketList(existingTargetCache.paketList || []);
+        setJadwalAktif(existingTargetCache.jadwalAktif || []);
+        setJadwalArsip(existingTargetCache.jadwalArsip || []);
+        setTimList(existingTargetCache.timList || []);
+      } else {
+        setOwner((prev) => ({
+          ...initialDemo.owner,
+          uid: fbSession.targetOwnerId,
+          namaBrand: 'Memuat Studio...',
+          namaOwner: fbSession.displayName,
+        }));
+        setJadwalAktif([]);
+        setJadwalArsip([]);
+        setPaketList([]);
+        setTimList([]);
+      }
+    }
+
     setTargetOwnerId(fbSession.targetOwnerId);
     setUserRole(fbSession.role);
     setActiveUserName(fbSession.displayName);
     setActiveUserEmail(fbSession.email || '');
     setSessionMode('FIREBASE');
 
-    // Pastikan selalu masuk ke Kasir Studio secara normal (Akses Super Admin HANYA via 5x ketuk teks versi v4.10)
+    // Pastikan selalu masuk ke Kasir Studio secara normal (Akses Super Admin HANYA via 5x ketuk teks versi v.4.15)
     setViewMode('CASHIER');
 
     // Jika ini hanya Reload Halaman (F5) dan Cache lokal untuk Owner ini masih segar (< 5 menit),
     // gunakan langsung Cache lokal (0 Read ke server!) agar super hemat kuota dan instan!
-    if (isAutoReload) {
-      try {
-        const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (raw) {
-          const cached = JSON.parse(raw);
-          const ageMs = Date.now() - Number(cached.cachedAt || 0);
-          if (
-            cached.targetOwnerId === fbSession.targetOwnerId &&
-            cached.owner &&
-            ageMs >= 0 &&
-            ageMs < 5 * 60 * 1000
-          ) {
-            setQuotaStats((prev) => ({
-              ...prev,
-              readsSession: 0,
-              cacheHitsSession: prev.cacheHitsSession + 1,
-              isLiveListenerActive: cached.owner.paketAktif === 'Ultimate',
-            }));
-            return;
-          }
-        }
-      } catch {}
+    if (isAutoReload && existingTargetCache) {
+      const ageMs = Date.now() - Number(existingTargetCache.cachedAt || 0);
+      if (
+        existingTargetCache.targetOwnerId === fbSession.targetOwnerId &&
+        existingTargetCache.owner &&
+        ageMs >= 0 &&
+        ageMs < 5 * 60 * 1000
+      ) {
+        setOwner(existingTargetCache.owner);
+        setRekening(existingTargetCache.rekening || initialDemo.rekening);
+        setPaketList(existingTargetCache.paketList || []);
+        setJadwalAktif(existingTargetCache.jadwalAktif || []);
+        setJadwalArsip(existingTargetCache.jadwalArsip || []);
+        setTimList(existingTargetCache.timList || []);
+        setQuotaStats((prev) => ({
+          ...prev,
+          readsSession: 0,
+          cacheHitsSession: prev.cacheHitsSession + 1,
+          isLiveListenerActive: existingTargetCache.owner.paketAktif === 'Ultimate',
+        }));
+        return;
+      }
     }
 
     setSyncingNow(true);
@@ -984,9 +1025,11 @@ export default function App() {
       setJadwalAktif(workspace.jadwalAktif);
       setJadwalArsip(workspace.jadwalArsip);
       setTimList(workspace.timList);
+
+      const targetCacheKey = getWorkspaceCacheKey(fbSession.targetOwnerId);
       try {
         localStorage.setItem(
-          LOCAL_CACHE_KEY,
+          targetCacheKey,
           JSON.stringify({
             sessionMode: 'FIREBASE',
             targetOwnerId: fbSession.targetOwnerId,
@@ -999,6 +1042,16 @@ export default function App() {
             jadwalAktif: workspace.jadwalAktif,
             jadwalArsip: workspace.jadwalArsip,
             timList: workspace.timList,
+          })
+        );
+        localStorage.setItem(
+          SESSION_META_KEY,
+          JSON.stringify({
+            sessionMode: 'FIREBASE',
+            targetOwnerId: fbSession.targetOwnerId,
+            userRole: fbSession.role,
+            activeUserName: fbSession.displayName,
+            activeUserEmail: fbSession.email || '',
           })
         );
       } catch {}
@@ -1103,7 +1156,11 @@ export default function App() {
     }));
 
     if (sessionMode === 'FIREBASE') {
-      await saveJadwalToFirebase(targetOwnerId, jadwalBaru);
+      try {
+        await saveJadwalToFirebase(targetOwnerId, jadwalBaru);
+      } catch (err) {
+        console.warn('Operasi jadwal tersimpan di persistensi lokal (offline):', err);
+      }
     }
 
     if (autoOpenStruk) {
@@ -1631,7 +1688,18 @@ export default function App() {
       if (sessionMode === 'FIREBASE') {
         await logoutFirebaseSession();
       }
-      localStorage.removeItem(LOCAL_CACHE_KEY);
+      try {
+        localStorage.removeItem(SESSION_META_KEY);
+        if (targetOwnerId) {
+          localStorage.removeItem(getWorkspaceCacheKey(targetOwnerId));
+        }
+        localStorage.removeItem(LEGACY_CACHE_KEY);
+        sessionStorage.clear();
+      } catch {}
+      setJadwalAktif([]);
+      setJadwalArsip([]);
+      setPaketList([]);
+      setTimList([]);
       setSessionMode(null);
     }
   };
@@ -1983,15 +2051,10 @@ if (isDrawer) setDrawerOpen(false);
           </>
         )}
 
-        <div className="my-2 border-t border-white/10" />
 
         <div className="px-2 py-1 space-y-2">
           <PWAInstallButton />
         </div>
-      </div>
-
-      {/* Footer Logout & Versi */}
-      <div className="p-3 border-t border-white/10 mt-auto shrink-0 space-y-2">
         {sessionMode === 'DEMO' ? (
           <div className="space-y-1.5">
             <button
@@ -2014,63 +2077,38 @@ if (isDrawer) setDrawerOpen(false);
             type="button"
             onClick={async () => {
               if (isDrawer) setDrawerOpen(false);
-              if (sessionMode === 'FIREBASE') {
-                await logoutFirebaseSession();
-              }
-              localStorage.removeItem(LOCAL_CACHE_KEY);
-              setSessionMode(null);
+              await handlePerformLogout();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-white cursor-pointer hover:opacity-95 active:scale-[0.98] transition-all shadow-md"
-            style={{ backgroundColor: '#C0392B' }}
+            className="w-full flex gap-3 px-4 mt-3 font-bold text-white cursor-pointer hover:opacity-95  transition-all shadow-md"
           >
             <LogOut className="w-4 h-4 shrink-0" />
             <span>Keluar Akun</span>
           </button>
         )}
+      </div>
+
+      {/* Footer Logout & Versi */}
+      <div className="p-2 border-t border-white/10 mt-auto shrink-0 space-y-1">
+        
 
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             if (isDrawer) setDrawerOpen(false);
-            if ('serviceWorker' in navigator) {
-              try {
-                setToastMessage('🔄 Memeriksa pembaruan sistem...');
-                const reg = await navigator.serviceWorker.getRegistration();
-                if (reg) {
-                  await reg.update();
-                  if (reg.waiting || reg.installing) {
-                    setToastMessage('✨ Pembaruan baru ditemukan! Memuat ulang...');
-                    window.location.reload();
-                  } else {
-                    setToastMessage('✓ Aplikasi sudah menggunakan versi terbaru (v4.10).');
-                  }
-                } else {
-                  window.location.reload();
-                }
-                setTimeout(() => setToastMessage(null), 3500);
-              } catch (e) {
-                window.location.reload();
-              }
+            if (needRefresh) {
+              updateServiceWorker(true);
             } else {
-              window.location.reload();
+              setToastMessage('✓ Aplikasi sudah menggunakan versi terbaru.');
+              setTimeout(() => setToastMessage(null), 3000);
             }
           }}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/15 cursor-pointer active:scale-[0.98] transition-all text-xs"
         >
           <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-          <span>Cek Pembaruan Aplikasi</span>
+          <span>Cek Pembaruan Aplikasi (v.4.15)</span>
         </button>
 
-        {/* Penanda Versi Aplikasi & Pemicu Stealth Super Admin (5x Ketuk) */}
-        <div className="pt-2 text-center select-none">
-          <span
-            onClick={handleSecretVersionTapInApp}
-            className="text-[11px] text-white/40 font-mono tracking-wider cursor-default hover:text-white/70 transition-colors inline-block px-2 py-0.5 rounded"
-            title="Kafela's Agenda"
-          >
-            v4.10
-          </span>
-        </div>
+    
       </div>
     </div>
   );
@@ -3421,9 +3459,148 @@ if (isDrawer) setDrawerOpen(false);
       </main>
       </div>
 
-   
+      {/* ===================================================================== */}
+      {/* NAVIGATION BAR DI BAWAH (BOTTOM NAVIGATION BAR)                       */}
+      {/* Otomatis berubah dinamis mengikuti Warna Tema & Background Wallpaper  */}
+      {/* ===================================================================== */}
+      {isMobileLayout && (
+        <nav
+          aria-label="Navigation Bar Bawah"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t transition-all duration-300 shadow-2xl flex items-center justify-around px-2 py-1 select-none"
+          style={{
+            ...navBackgroundComputed,
+            paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 6px)',
+          }}
+        >
+          {/* 1. KALENDER */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('KALENDER');
+              setSelectedDateStr(null);
+              setStatusFilter('SEMUA_BULAN');
+              bumpCacheHit();
+            }}
+            className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+            style={{
+              color: activeTab === 'KALENDER' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+              backgroundColor: activeTab === 'KALENDER' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+              border: activeTab === 'KALENDER' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+            }}
+          >
+            <CalendarIcon className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Kalender</span>
+            {activeTab === 'KALENDER' && (
+              <span
+                className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#F39C12' }}
+              />
+            )}
+          </button>
 
- 
+          {/* 2. LAPORAN */}
+          {!isKruAnggota && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('LAPORAN');
+                bumpCacheHit();
+              }}
+              className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+              style={{
+                color: activeTab === 'LAPORAN' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                backgroundColor: activeTab === 'LAPORAN' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                border: activeTab === 'LAPORAN' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+              }}
+            >
+              <BarChart3 className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] font-bold mt-0.5 tracking-tight">Laporan</span>
+              {activeTab === 'LAPORAN' && (
+                <span
+                  className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: '#F39C12' }}
+                />
+              )}
+            </button>
+          )}
+
+          {/* 3. TOMBOL TENGAH (+) TRANSAKSI / KASIR CEPAT */}
+          {!isKruAnggota && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingJadwal(null);
+                setFabChoiceOpen(true);
+              }}
+              className="flex flex-col items-center justify-center px-1 -mt-4 cursor-pointer group active:scale-95 transition-transform"
+              title="Kasir Cepat & Tambah Agenda"
+            >
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-xl border-2 border-white/50 transition-all duration-200 group-hover:scale-105"
+                style={{
+                  backgroundColor: navThemeColor,
+                  boxShadow: `0 6px 18px ${hexToRgba(navThemeColor, 0.7)}`,
+                }}
+              >
+                <Plus className="w-6 h-6 stroke-[2.8]" />
+              </div>
+              <span className="text-[9.5px] font-extrabold text-white mt-0.5 drop-shadow-sm">
+                + Transaksi
+              </span>
+            </button>
+          )}
+
+          {/* 4. ARSIP */}
+          {!isKruAnggota && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ARSIP');
+                bumpCacheHit();
+              }}
+              className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+              style={{
+                color: activeTab === 'ARSIP' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                backgroundColor: activeTab === 'ARSIP' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                border: activeTab === 'ARSIP' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+              }}
+            >
+              <Archive className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] font-bold mt-0.5 tracking-tight">Arsip</span>
+              {activeTab === 'ARSIP' && (
+                <span
+                  className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: '#F39C12' }}
+                />
+              )}
+            </button>
+          )}
+
+          {/* 5. MENU & PENGATURAN */}
+          <button
+            type="button"
+            onClick={() => {
+              setDrawerOpen(true);
+            }}
+            className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+            style={{
+              color: (drawerOpen || activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+              backgroundColor: (activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+              border: (activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+            }}
+          >
+            <Menu className="w-5 h-5 shrink-0" />
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Menu</span>
+            {(activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') && (
+              <span
+                className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#F39C12' }}
+              />
+            )}
+          </button>
+        </nav>
+      )}
+
       {/* ===================================================================== */}
       {/* POPUP MENU AKSI JADWAL PERSIS dialog_aksi_jadwal.xml APK ANDROID      */}
       {/* ===================================================================== */}
@@ -3776,13 +3953,13 @@ if (isDrawer) setDrawerOpen(false);
         const isAkanLunas = (nominalInput >= sisaTagihan && sisaTagihan > 0) || totalAkumulasi >= totalBersih;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 overflow-y-auto">
             <div
-              className="w-full max-w-lg rounded-2xl p-6 space-y-4 shadow-2xl my-auto border"
+              className="w-full max-w-lg rounded-2xl p-2 space-y-4 shadow-2xl my-auto border"
               style={{ backgroundColor: '#1E1E1E', borderColor: '#333333', color: '#FFFFFF' }}
             >
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
                     <CreditCard className="w-5 h-5" />
                   </div>
@@ -3805,7 +3982,7 @@ if (isDrawer) setDrawerOpen(false);
               </div>
 
               {/* Rincian Perhitungan Keuangan: Menghitung Sisa Pembayaran */}
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-black/40 border border-white/10 text-center">
+              <div className="grid grid-cols-3 gap-1    text-center">
                 <div className="p-2 rounded-lg bg-white/5">
                   <p className="text-[10px] text-white/60 font-medium">Total Harga</p>
                   <p className="text-xs sm:text-sm font-bold text-white mt-0.5">
@@ -3832,7 +4009,7 @@ if (isDrawer) setDrawerOpen(false);
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-white/90">
-                      Nominal Pembayaran Diterima Sekarang (Rp):
+                      Nominal Pembayaran Diterima Sekarang:
                     </label>
                     {sisaTagihan > 0 && (
                       <button
@@ -3840,7 +4017,7 @@ if (isDrawer) setDrawerOpen(false);
                         onClick={() => setDpModalInputStr(formatRibuanInput(String(sisaTagihan)))}
                         className="text-[11px] font-extrabold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
                       >
-                        ⚡ Pas Sisa ({keRupiah(sisaTagihan)})
+                        ⚡ Pas ({keRupiah(sisaTagihan)})
                       </button>
                     )}
                   </div>
@@ -3849,7 +4026,7 @@ if (isDrawer) setDrawerOpen(false);
                     placeholder="Contoh: 500.000 atau ketik nominal"
                     value={dpModalInputStr}
                     onChange={(e) => setDpModalInputStr(formatRibuanInput(e.target.value))}
-                    className="w-full rounded-xl bg-black/50 border border-white/20 px-4 py-3 text-base font-mono font-bold text-white focus:outline-hidden focus:border-amber-400 transition-colors"
+                    className="w-full rounded-xl bg-black/50 border border-white/20 px-4 py-3 text-base  font-bold text-white focus:outline-hidden focus:border-amber-400 transition-colors"
                     autoFocus
                   />
                 </div>
@@ -4078,11 +4255,11 @@ if (isDrawer) setDrawerOpen(false);
       {/* ===================================================================== */}
       {temaModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 overflow-y-auto"
           onClick={() => setTemaModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 space-y-6 border shadow-2xl my-auto"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-2 space-y-2 border shadow-2xl my-auto"
             style={{ backgroundColor: '#1A1E24', borderColor: '#333D4B', color: '#FFFFFF' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4121,22 +4298,21 @@ if (isDrawer) setDrawerOpen(false);
             {/* ================================================================= */}
             {/* SEKSI 1: WARNA & LATAR BELAKANG NAVIGASI, BAR & TOOLBAR           */}
             {/* ================================================================= */}
-            <div className="space-y-3 p-4 rounded-xl border border-sky-500/20 bg-sky-950/20">
+            <div className="space-y-3 p-2 rounded-xl border border-sky-500/20 bg-sky-950/20">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
                     <label className="text-xs font-bold text-sky-300 uppercase tracking-wide">
-                      1. Warna &amp; Latar tema
+                      1. Warna Tema 
                     </label>
                   </div>
-                  
+                 
                 </div>
               </div>
 
               {/* Palet 10 Warna Populer */}
               <div className="space-y-1.5 pt-1">
-                <span className="text-[11px] font-bold text-white/80">Pilih Warna Navigasi &amp; Toolbar:</span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {DAFTAR_WARNA_TEMA_APK.map((w) => {
                     const isAktif = (owner.warnaTema || '#34495E') === w.kode;
@@ -4172,8 +4348,8 @@ if (isDrawer) setDrawerOpen(false);
               </div>
 
               {/* Pemilih Warna Bebas (Custom Color Picker) */}
-              <div className="flex items-center gap-3 bg-black/40 p-2.5 rounded-xl border border-white/10">
-                <label className="text-xs text-white/80 font-bold shrink-0">Warna Bebas / Kustom:</label>
+              <div className="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/10">
+                <label className="text-xs text-white/80 font-bold shrink-0">Warna Custom:</label>
                 <input
                   type="color"
                   value={owner.warnaTema || '#34495E'}
@@ -4204,7 +4380,74 @@ if (isDrawer) setDrawerOpen(false);
               </div>
 
               {/* Gaya Latar Belakang Navigasi (Solid vs Glass vs Gradient vs Dark Accent) */}
-             
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-white/90">Gaya Bar Navigasi (Atas &amp; Bawah):</span>
+                  <span className="text-[10px] font-mono text-amber-300 font-bold uppercase">
+                    {owner.gayaLatarNavigasi || 'SOLID'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'SOLID', label: 'Solid / Tegas', desc: 'Warna penuh pekat' },
+                    { id: 'GLASS', label: 'Kaca / Glass', desc: 'Tembus wallpaper & blur' },
+                    { id: 'GRADIENT', label: 'Gradasi Halus', desc: 'Warna tema ke gelap' },
+                    { id: 'DARK_ACCENT', label: 'Aksen Gelap', desc: 'Hitam pekat + lis warna' },
+                  ].map((styleOpt) => {
+                    const isSelected = (owner.gayaLatarNavigasi || 'SOLID') === styleOpt.id;
+                    return (
+                      <button
+                        key={styleOpt.id}
+                        type="button"
+                        onClick={async () => {
+                          const val = styleOpt.id as 'SOLID' | 'GLASS' | 'GRADIENT' | 'DARK_ACCENT';
+                          setOwner((prev) => ({ ...prev, gayaLatarNavigasi: val }));
+                          if (sessionMode === 'FIREBASE') {
+                            await saveOwnerProfileToFirebase(targetOwnerId, { gayaLatarNavigasi: val });
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-amber-500/25 border-amber-400 text-white shadow-md ring-1 ring-amber-400'
+                            : 'bg-black/30 border-white/10 text-white/70 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="text-xs font-bold">{styleOpt.label}</div>
+                        <div className="text-[10px] text-white/60">{styleOpt.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Slider Opasitas Navigasi */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-white/90">Transparansi Bar Navigasi:</span>
+                  <span className="font-mono text-amber-300 font-bold">
+                    {typeof owner.opasitasNavigasi === 'number' ? owner.opasitasNavigasi : 95}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="100"
+                  step="5"
+                  value={typeof owner.opasitasNavigasi === 'number' ? owner.opasitasNavigasi : 95}
+                  onChange={async (e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setOwner((prev) => ({ ...prev, opasitasNavigasi: val }));
+                    if (sessionMode === 'FIREBASE') {
+                      await saveOwnerProfileToFirebase(targetOwnerId, { opasitasNavigasi: val });
+                    }
+                  }}
+                  className="w-full accent-amber-400 cursor-pointer h-1.5 bg-black/40 rounded-lg appearance-none"
+                />
+                <div className="flex justify-between text-[9.5px] text-white/40">
+                  <span>40% (Kaca Tembus Wallpaper)</span>
+                  <span>100% (Solid Pekat)</span>
+                </div>
+              </div>
             </div>
 
             {/* ================================================================= */}
@@ -4216,12 +4459,9 @@ if (isDrawer) setDrawerOpen(false);
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
                     <label className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                      2. Latar Belakang Utama Aplikasi (Diatur Oleh Wallpaper)
+                      2. Latar Belakang Utama Aplikasi
                     </label>
                   </div>
-                  <p className="text-[11px] text-white/75 mt-1 leading-relaxed">
-                    Latar belakang utama diatur oleh foto wallpaper atau mode netral terang/gelap di bawah ini.
-                  </p>
                 </div>
               </div>
 
@@ -4300,7 +4540,6 @@ if (isDrawer) setDrawerOpen(false);
                     Klik di Sini untuk Upload Foto Wallpaper
                   </p>
                   <p className="text-[10px] text-white/60">
-                    Bisa foto karya foto studio, wedding, atau pemandangan (JPG/PNG)
                   </p>
                 </div>
 
@@ -4774,11 +5013,12 @@ if (isDrawer) setDrawerOpen(false);
             setOwner((prev) => {
               const updatedOwner = { ...prev, ...updates };
               try {
-                const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+                const targetKey = getWorkspaceCacheKey(targetOwnerId);
+                const raw = localStorage.getItem(targetKey);
                 if (raw) {
                   const parsed = JSON.parse(raw);
                   parsed.owner = updatedOwner;
-                  localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(parsed));
+                  localStorage.setItem(targetKey, JSON.stringify(parsed));
                 }
               } catch {}
               return updatedOwner;
@@ -4800,6 +5040,9 @@ if (isDrawer) setDrawerOpen(false);
         onClose={() => setIsTopUpGlobalOpen(false)}
         owner={owner}
       />
+
+      {/* Indikator Status Offline & Pemulihan Koneksi */}
+      <OfflineIndicator />
 
       {/* Floating Toast Notification */}
       {toastMessage && (

@@ -125,9 +125,9 @@ export const LaporanKeuanganView: React.FC<{
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2 px-0">
       {/* Header & Switch Keuangan vs Piutang */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2">
         <div>
           <h2 className="text-base font-bold text-white">
             {subTab === 'KEUANGAN'
@@ -137,7 +137,7 @@ export const LaporanKeuanganView: React.FC<{
      
         </div>
 
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-950 border border-slate-800">
+        <div className="flex items-center gap-1 p-0rounded-lg bg-slate-950 border border-slate-800">
           <button
             type="button"
             onClick={() => setSubTab('KEUANGAN')}
@@ -166,10 +166,9 @@ export const LaporanKeuanganView: React.FC<{
       {subTab === 'KEUANGAN' ? (
         <>
           {/* Navigasi Bulan & Ringkasan Kas / Omzet */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl bg-slate-900 border border-slate-800 p-2.5 flex flex-col justify-between">
-              <span className="text-xs text-slate-400 font-medium">Periode Bulan Laporan</span>
-              <div className="flex items-center justify-between mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="rounded-xl bg-slate-900 border border-slate-800 p-1 flex flex-col justify-between">
+              <div className="flex items-center justify-between mt-0">
                 <button
                   type="button"
                   disabled={isAdmin}
@@ -209,29 +208,29 @@ export const LaporanKeuanganView: React.FC<{
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-900 border border-slate-800 p-2.5">
-              <span className="text-xs text-slate-400">Total Pemasukan</span>
-              <div className="text-xl font-extrabold font-mono text-emerald-400 mt-1.5">
-                {keRupiah(totalPemasukanBulanIni)}
-              </div>
-           
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+  {/* Card Total Pemasukan */}
+  <div className="rounded-xl bg-slate-900 border border-slate-800 p-2">
+    <span className="text-xs text-slate-400">Total Pemasukan</span>
+    <div className="text-xm font-extrabold font-mono text-emerald-400 mt-1">
+      {keRupiah(totalPemasukanBulanIni)}
+    </div>
+  </div>
 
-            <div className="rounded-xl bg-slate-900 border border-slate-800 p-2.5">
-              <span className="text-xs text-slate-400">Total Omzet Bulan Ini</span>
-              <div className="text-xl font-extrabold font-mono text-sky-400 mt-1.5">
-                {keRupiah(totalOmzetBulanIni)}
-              </div>
-              
-          
-            </div>
+  {/* Card Total Omzet Bulan Ini */}
+  <div className="rounded-xl bg-slate-900 border border-slate-800 p-2">
+    <span className="text-xs text-slate-400">Total Omzet</span>
+    <div className="text-xm font-extrabold font-mono text-sky-400 mt-1">
+      {keRupiah(totalOmzetBulanIni)}
+    </div>
+  </div>
+</div>
           </div>
 
           {/* Filter Hari & Tabel Rincian Uang Masuk */}
-          <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-800 bg-slate-950">
+          <div className="rounded-xl bg-slate-900 border  border-slate-800 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-2 border-b border-slate-800 bg-slate-950">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-white">Rincian Uang Masuk:</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -267,7 +266,7 @@ export const LaporanKeuanganView: React.FC<{
               </div>
 
               <div className="text-xs font-mono font-bold text-emerald-400">
-                Total Terfilter: {keRupiah(totalPemasukanFilter)}
+                {keRupiah(totalPemasukanFilter)}
               </div>
             </div>
 
@@ -280,11 +279,11 @@ export const LaporanKeuanganView: React.FC<{
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/50">
-                      <th className="py-3 px-4 font-semibold">Tanggal Acara</th>
-                      <th className="py-3 px-4 font-semibold">Klien & Acara</th>
-                      <th className="py-3 px-4 font-semibold">Paket</th>
-                      <th className="py-3 px-4 font-semibold text-right">Uang Masuk</th>
-                      <th className="py-3 px-4 font-semibold text-right">Status</th>
+                      <th className="py-3 px-2.5  font-semibold text-[10px] ">Waktu Acara</th>
+                      <th className="py-3 px-1 font-semibold">Klien & Acara</th>
+                      <th className="py-3 px-1 font-semibold">Paket</th>
+                      <th className="py-3 px-1 font-semibold  text-[11px] text-right">Uang Masuk</th>
+                      <th className="py-3 px-1 font-semibold text-right">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/70">
@@ -298,18 +297,18 @@ export const LaporanKeuanganView: React.FC<{
                           onClick={() => onSelectJadwal(item)}
                           className="hover:bg-slate-800/60 cursor-pointer transition-colors"
                         >
-                          <td className="py-3 px-4 font-mono text-slate-300">
+                          <td className="py-2 px-1.5 text-[10px] text-slate-300">
                             {formatTanggalIndo(item.waktuMulai, true)}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-1">
                             <div className="font-bold text-white">{item.namaKlien}</div>
                             <div className="text-[11px] text-slate-400">{item.namaAcara}</div>
                           </td>
-                          <td className="py-3 px-4 text-slate-300">{item.paket}</td>
-                          <td className="py-3 px-4 font-mono font-bold text-emerald-400 text-right">
-                            {keRupiah(masuk)}
+                          <td className="py-2 px-1 text-slate-300">{item.paket}</td>
+                          <td className="py-2 px-1 font-mono font-bold text-emerald-400 text-right">
+                            {keRupiah(masuk).replace('Rp', '')}
                           </td>
-                          <td className="py-3 px-4 text-right font-bold">
+                          <td className="py-3 px-1 text-right font-bold">
                             <span
                               className={
                                 st === 'lunas'
@@ -319,7 +318,7 @@ export const LaporanKeuanganView: React.FC<{
                                   : 'text-slate-400'
                               }
                             >
-                              {item.status.toUpperCase()}
+                              {item.status                         }
                             </span>
                           </td>
                         </tr>
@@ -334,12 +333,12 @@ export const LaporanKeuanganView: React.FC<{
       ) : (
         /* TABEL PIUTANG (KLIEN BELUM LUNAS) */
         <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+          <div className="px-2 py-3.5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
             <span className="text-xs font-bold text-white">
-              Daftar Klien Belum Lunas (Klik baris untuk Lunasi / Cetak Struk)
+              Daftar Klien Belum Lunas
             </span>
             <span className="text-xs font-mono font-bold text-rose-400">
-              Total Piutang:{' '}
+              Piutang:{' '}
               {keRupiah(
                 listPiutang.reduce(
                   (acc, cur) => acc + Math.max(0, cur.hargaKotor - cur.diskon - cur.dpDibayar),
@@ -358,11 +357,11 @@ export const LaporanKeuanganView: React.FC<{
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/50">
-                    <th className="py-3 px-4 font-semibold">Tanggal Acara</th>
-                    <th className="py-3 px-4 font-semibold">Klien & Acara</th>
-                    <th className="py-3 px-4 font-semibold text-right">Sudah DP</th>
-                    <th className="py-3 px-4 font-semibold text-right">Sisa Tagihan</th>
-                    <th className="py-3 px-4 font-semibold text-right">Status</th>
+                      <th className="py-3 px-2.5  font-semibold text-[10px] ">Waktu Acara</th>
+                    <th className="py-3 px-1 font-semibold">Klien & Acara</th>
+                    <th className="py-3 px-1 font-semibold  text-[11px]">Nominal DP</th>
+                    <th className="py-3 px-1 font-semibold text-[11px]  text-right">Sisa Tagihan</th>
+                    <th className="py-3 px-1 font-semibold text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/70">
@@ -374,21 +373,21 @@ export const LaporanKeuanganView: React.FC<{
                         onClick={() => onSelectJadwal(item)}
                         className="hover:bg-slate-800/60 cursor-pointer transition-colors"
                       >
-                        <td className="py-3 px-4 font-mono text-slate-300">
+                          <td className="py-2 px-1.5 text-[10px] text-slate-300">
                           {formatTanggalIndo(item.waktuMulai, true)}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-1">
                           <div className="font-bold text-white">{item.namaKlien}</div>
                           <div className="text-[11px] text-slate-400">{item.namaAcara}</div>
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-300 text-right">
-                          {keRupiah(item.dpDibayar)}
+                        <td className="py-3 px-1 font-mono text-slate-300 text-right">
+                          {keRupiah(item.dpDibayar).replace('Rp', '')}
                         </td>
-                        <td className="py-3 px-4 font-mono font-bold text-rose-400 text-right">
-                          {keRupiah(sisa)}
+                        <td className="py-3 px-1 font-mono font-bold text-rose-400 text-right">
+                          {keRupiah(sisa).replace('Rp', '')}
                         </td>
-                        <td className="py-3 px-4 text-right font-bold text-amber-400">
-                          {item.status.toUpperCase()}
+                        <td className="py-3 px-1 text-[11px]  text-right font-bold text-amber-400">
+                          {item.status}
                         </td>
                       </tr>
                     );
@@ -570,24 +569,24 @@ export const MasterPaketView: React.FC<{
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
       {/* Daftar Paket (7 Kolom) */}
       <div className="lg:col-span-7 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+        <div className="px-2 py-2 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-white">Daftar Paket Layanan</h2>
             <p className="text-xs text-slate-400">
               Urutan paket di sini otomatis tampil di Kasir PC, Aplikasi HP, dan Form Website
             </p>
           </div>
-          <span className="text-xs font-mono text-sky-400">{paketList.length} Layanan</span>
+          <span className="px-2 text-xs font-mono text-sky-400">{paketList.length} Layanan</span>
         </div>
 
         <div className="divide-y divide-slate-800">
           {paketList.map((item, idx) => (
             <div
               key={item.idPaket}
-              className="p-4 flex items-start justify-between gap-4 hover:bg-slate-800/40"
+              className="p-2 flex items-start justify-between gap-4 hover:bg-slate-800/40"
             >
               <div className="flex items-start gap-3">
                 <div className="flex flex-col gap-1 pt-0.5">

@@ -7,7 +7,7 @@ export function keRupiah(nominal: number): string {
 
 export function formatRibuanInput(val: string): string {
   const clean = val.replace(/[^0-9]/g, '');
-  if (!clean) return '';
+  if (!clean) return '0';
   return Number(clean).toLocaleString('id-ID');
 }
 

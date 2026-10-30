@@ -9,17 +9,51 @@ const dbPromise = openDB(DB_NAME, 1, {
   },
 });
 
-export const saveMedia = async (key: string, data: Blob | string) => {
+/**
+ * Simpan data media (Logo / Tanda Tangan) terisolasi per-owner
+ */
+export const saveMedia = async (
+  key: string,
+  data: Blob | string,
+  ownerId?: string
+): Promise<void> => {
   const db = await dbPromise;
-  await db.put(STORE_NAME, data, key);
+  const isolatedKey = ownerId ? `${ownerId}_${key}` : key;
+  await db.put(STORE_NAME, data, isolatedKey);
 };
 
-export const getMedia = async (key: string): Promise<Blob | string | undefined> => {
+/**
+ * Ambil data media dengan prioritas isolasi per-owner, dengan fallback ke kunci warisan jika ada
+ */
+export const getMedia = async (
+  key: string,
+  ownerId?: string
+): Promise<Blob | string | undefined> => {
   const db = await dbPromise;
+  if (ownerId) {
+    const isolatedVal = await db.get(STORE_NAME, `${ownerId}_${key}`);
+    if (isolatedVal !== undefined) return isolatedVal;
+  }
   return await db.get(STORE_NAME, key);
 };
 
-export const deleteMedia = async (key: string) => {
+/**
+ * Hapus data media terisolasi maupun kunci warisan
+ */
+export const deleteMedia = async (key: string, ownerId?: string): Promise<void> => {
   const db = await dbPromise;
+  if (ownerId) {
+    await db.delete(STORE_NAME, `${ownerId}_${key}`);
+  }
   await db.delete(STORE_NAME, key);
+};
+
+/**
+ * Hapus seluruh media milik owner tertentu saat logout atau pembersihan memori
+ */
+export const clearOwnerMedia = async (ownerId: string): Promise<void> => {
+  if (!ownerId) return;
+  const db = await dbPromise;
+  await db.delete(STORE_NAME, `${ownerId}_logo`);
+  await db.delete(STORE_NAME, `${ownerId}_ttd`);
 };

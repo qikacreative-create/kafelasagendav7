@@ -64,7 +64,7 @@ export const SignatureAndLogoModal: React.FC<SignatureAndLogoModalProps> = ({
       // 1. Muat Logo Brand
       let currentLogo = owner.logoBrandUrl || '';
       if (currentLogo === 'local:logo') {
-        const cached = await getMedia('logo');
+        const cached = await getMedia('logo', owner.uid);
         if (cached) {
           currentLogo = typeof cached === 'string' ? cached : URL.createObjectURL(cached);
         } else {
@@ -81,7 +81,7 @@ export const SignatureAndLogoModal: React.FC<SignatureAndLogoModalProps> = ({
       // 2. Muat TTD Digital
       let currentTtd = owner.ttdUrl || '';
       if (currentTtd === 'local:ttd') {
-        const cached = await getMedia('ttd');
+        const cached = await getMedia('ttd', owner.uid);
         if (cached) {
           currentTtd = typeof cached === 'string' ? cached : URL.createObjectURL(cached);
         } else {
@@ -96,7 +96,7 @@ export const SignatureAndLogoModal: React.FC<SignatureAndLogoModalProps> = ({
       }
     };
     loadMedia();
-  }, [owner.logoBrandUrl, owner.ttdUrl]);
+  }, [owner.logoBrandUrl, owner.ttdUrl, owner.uid]);
 
   // Re-run extractor saat slider digeser atau foto kertas berganti
   useEffect(() => {
@@ -239,17 +239,17 @@ export const SignatureAndLogoModal: React.FC<SignatureAndLogoModalProps> = ({
         finalTtd = comp.base64;
       }
 
-      // Simpan ke IndexedDB sebagai cache lokal
+      // Simpan ke IndexedDB sebagai cache lokal terisolasi per owner
       if (finalLogo) {
-        await saveMedia('logo', finalLogo);
+        await saveMedia('logo', finalLogo, owner.uid);
       } else {
-        await deleteMedia('logo');
+        await deleteMedia('logo', owner.uid);
       }
 
       if (finalTtd) {
-        await saveMedia('ttd', finalTtd);
+        await saveMedia('ttd', finalTtd, owner.uid);
       } else {
-        await deleteMedia('ttd');
+        await deleteMedia('ttd', owner.uid);
       }
 
       // Simpan ke Profil Owner Firestore (tanpa Storage & tidak duplikasi ke dokumen transaksi/jadwal)

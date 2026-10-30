@@ -175,6 +175,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
     activeEditItem?.dpDibayar ? formatRibuanInput(String(activeEditItem.dpDibayar)) : ''
   );
   const [catatan, setCatatan] = useState(activeEditItem?.catatan || '');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Modul Spesifik Profesi (MUA, Foto, MC, WO)
   const [openMua, setOpenMua] = useState(Boolean(activeEditItem?.attire));
@@ -259,7 +260,14 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (!namaKlien.trim() || !paketNama.trim()) {
+      setErrorMessage('Nama klien dan paket harus diisi.');
+      return;
+    }
+
+    if (diskon > hargaTotalKotor) {
+      setErrorMessage('Diskon tidak boleh melebihi harga total!');
       return;
     }
     // TODO: Implement quota check here, passing data from App.tsx via props.
@@ -338,8 +346,8 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
 
   return (
 
-    <div className="rounded-xl bg-slate-900  border-slate-800 shadow-lg">
-      {/* Header Form */}
+<div className="w-full px-1 rounded-none sm:rounded-xl bg-slate-900 border-slate-800 shadow-lg -mx-0 sm:mx-0">
+        {/* Header Form */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-800 bg-slate-950">
         <div className="flex items-center gap-2">
           <Receipt className="w-4 h-4 text-emerald-400" />
@@ -391,7 +399,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="px-0 space-y-2 text-[12px]">
+      <form onSubmit={handleSubmit} className="px-1 py-1 space-y-2 text-[12px]">
         {/* Baris 1: Nama Klien & Nomor WA */}
         <div className="grid grid-cols-2 gap-1">
           <div className="min-w-0">
@@ -401,38 +409,38 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
               placeholder="Nama pelanggan *"
               value={namaKlien}
               onChange={(e) => setNamaKlien(e.target.value)}
-              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
+              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 text-white text-[12px] focus:border-sky-500 focus:outline-none"
             />
           </div>
 
           <div className="min-w-0">
             <input
               type="tel"
-              placeholder="Nomor WhatsApp (0812xxxx)"
+              placeholder="WhatsApp (0812...)"
               value={waKlien}
               onChange={(e) => setWaKlien(e.target.value)}
-              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white font-mono text-[12px] focus:border-sky-500 focus:outline-none"
+              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 text-white font-mono text-[12px] focus:border-sky-500 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Khusus Agenda Event: Nama Acara, Lokasi, Tanggal & Jam */}
         {formMode === 'AGENDA_LENGKAP' && (
-          <div className="space-y-1.5 pt-0.5">
+          <div className="space-y-2">
             <div className="grid grid-cols-2 gap-1">
               <input
                 type="text"
-                placeholder="Nama Acara (Cth: Wisuda / Wedding)"
+                placeholder="Nama Acara"
                 value={namaAcara}
                 onChange={(e) => setNamaAcara(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
+                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 text-white text-[12px] focus:border-sky-500 focus:outline-none"
               />
               <input
                 type="text"
-                placeholder="Lokasi Acara (Cth: Studio Utama / Hotel)"
+                placeholder="Lokasi Acara"
                 value={lokasi}
                 onChange={(e) => setLokasi(e.target.value)}
-                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2.5 text-white text-[12px] focus:border-sky-500 focus:outline-none"
+                className="w-full rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 text-white text-[12px] focus:border-sky-500 focus:outline-none"
               />
             </div>
 
@@ -497,7 +505,6 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
         <div ref={dropdownRef} className="relative z-30">
           <div className="flex items-center justify-between mb-2">
             <label className="text-slate-300  flex items-center gap-1.5">
-              <span>Pilih Paket Layanan *</span>
             </label>
             <button
               type="button"
@@ -693,7 +700,6 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
        <input
   type="text"
   inputMode="numeric"
-  pattern="[0-9]*"
   placeholder="0"
   value={diskonStr}
   onChange={(e) => {
@@ -776,14 +782,11 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
           <input
   type="text"
   inputMode="numeric"
-  pattern="[0-9]*"
   placeholder="0"
   value={nominalDpStr}
   onChange={(e) => {
     const angkaSaja = e.target.value.replace(/\D/g, '');
-    setNominalDpStr(
-      angkaSaja ? formatRibuanInput(angkaSaja) : ''
-    );
+    setNominalDpStr(formatRibuanInput(angkaSaja));
   }}
   className="w-full px-2.5 py-2 text-white font-mono font-bold text-xs bg-transparent focus:outline-none"
 />
@@ -792,8 +795,13 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
           )}
         </div>
 
-        {/* Catatan */}
+        {/* Catatan & Error Message */}
         <div>
+          {errorMessage && (
+            <div className="mb-2 p-2 rounded-lg bg-rose-950/50 border border-rose-500/50 text-rose-300 text-xs font-medium">
+              {errorMessage}
+            </div>
+          )}
           <textarea
             rows={1}
             placeholder="Catatan tambahan untuk tim atau struk (Opsional)..."

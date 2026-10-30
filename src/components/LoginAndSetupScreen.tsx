@@ -59,7 +59,7 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
   const [fbConfig, setFbConfig] = useState<FirebaseCustomConfig>(savedCfg);
   const [fbSavedToast, setFbSavedToast] = useState(false);
 
-  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v4.10)
+  // Stealth Trigger untuk Super Admin (5x ketukan cepat pada versi v.4.15)
   const tapCountRef = useRef<number>(0);
   const tapTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -232,7 +232,7 @@ export const LoginAndSetupScreen: React.FC<LoginAndSetupScreenProps> = ({
             className="text-[11px] text-slate-500 font-mono tracking-wider cursor-default hover:text-slate-400 transition-colors inline-block  rounded"
             title="Kafela's Agenda"
           >
-            v4.10
+            v.4.15
           </span>
         </div>
             </div>

@@ -71,7 +71,7 @@ export const StrukModal: React.FC<StrukModalProps> = ({
       if (owner.logoBrandUrl && owner.logoBrandUrl !== 'local:logo') {
         setLocalLogoUrl(owner.logoBrandUrl);
       } else {
-        const cached = await getMedia('logo');
+        const cached = await getMedia('logo', owner.uid);
         if (cached) {
           setLocalLogoUrl(typeof cached === 'string' ? cached : URL.createObjectURL(cached));
         }
@@ -81,14 +81,14 @@ export const StrukModal: React.FC<StrukModalProps> = ({
       if (owner.ttdUrl && owner.ttdUrl !== 'local:ttd') {
         setLocalTtdUrl(owner.ttdUrl);
       } else {
-        const cached = await getMedia('ttd');
+        const cached = await getMedia('ttd', owner.uid);
         if (cached) {
           setLocalTtdUrl(typeof cached === 'string' ? cached : URL.createObjectURL(cached));
         }
       }
     };
     loadMedia();
-  }, [owner.logoBrandUrl, owner.ttdUrl]);
+  }, [owner.logoBrandUrl, owner.ttdUrl, owner.uid]);
 
   const finalLogoUrl =
     (owner.logoBrandUrl && owner.logoBrandUrl !== 'local:logo' ? owner.logoBrandUrl : null) ||
