@@ -124,6 +124,12 @@ service cloud.firestore {
         allow read: if isOwner(ownerId) || isAdmin(ownerId) || isSuperAdmin();
         allow write: if isOwner(ownerId) || isAdmin(ownerId) || isSuperAdmin();
       }
+
+      // Sub-koleksi Pelanggan (Riwayat Data Kontak Pelanggan)
+      match /pelanggan/{pelangganId} {
+        allow read: if isOwner(ownerId) || isAdmin(ownerId) || isStaff(ownerId) || isSuperAdmin();
+        allow write: if isOwner(ownerId) || isAdmin(ownerId) || isSuperAdmin();
+      }
     }
   }
 }

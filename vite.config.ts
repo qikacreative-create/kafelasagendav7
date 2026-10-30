@@ -65,6 +65,7 @@ export default defineConfig(() => {
           skipWaiting: true,
           clientsClaim: true,
           cleanupOutdatedCaches: true,
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           globIgnores: ['**/kflsagnd-kasir-pc.zip'],
           navigateFallbackDenylist: [
             /^\/booking\.html/,

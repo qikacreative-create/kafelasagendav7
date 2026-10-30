@@ -32,6 +32,7 @@ import {
   OwnerProfile,
   PaketLanggananTier,
   PaketLayanan,
+  PelangganModel,
   RekeningModel,
   TopUpRequest,
   UserRoleType,
@@ -3514,6 +3515,221 @@ export const PengaturanStudioView: React.FC<{
         />
       )}
     
+    </div>
+  );
+};
+
+export const DaftarPelangganView: React.FC<{
+  pelangganList: PelangganModel[];
+  onSavePelanggan: (p: PelangganModel) => void;
+  onDeletePelanggan: (id: string) => void;
+}> = ({ pelangganList, onSavePelanggan, onDeletePelanggan }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<PelangganModel | null>(null);
+  const [nama, setNama] = useState('');
+  const [noWhatsApp, setNoWhatsApp] = useState('');
+  const [catatan, setCatatan] = useState('');
+
+  const filtered = pelangganList.filter(
+    (c) => c.nama.toLowerCase().includes(searchQuery.toLowerCase()) || c.noWhatsApp.includes(searchQuery)
+  );
+
+  const handleOpenAdd = () => {
+    setEditItem(null);
+    setNama('');
+    setNoWhatsApp('');
+    setCatatan('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (p: PelangganModel) => {
+    setEditItem(p);
+    setNama(p.nama);
+    setNoWhatsApp(p.noWhatsApp);
+    setCatatan(p.catatan || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nama.trim() || !noWhatsApp.trim()) return;
+    const payload: PelangganModel = {
+      idPelanggan: editItem ? editItem.idPelanggan : `cust_${Date.now()}`,
+      nama: nama.trim(),
+      noWhatsApp: noWhatsApp.trim(),
+      catatan: catatan.trim(),
+      createdAt: editItem ? editItem.createdAt : Date.now(),
+    };
+    onSavePelanggan(payload);
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-white">Daftar Pelanggan</h2>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                {pelangganList.length} Pelanggan
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Database  pelanggan dan WhatsApp </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenAdd}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition shadow"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Tambah Pelanggan</span>
+        </button>
+      </div>
+
+      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5">
+        <Search className="w-4 h-4 text-slate-400 mr-2" />
+        <input
+          type="text"
+          placeholder="Cari nama pelanggan atau nomor WhatsApp..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-transparent text-xs text-white focus:outline-none"
+        />
+      </div>
+
+      <div className="rounded-xl bg-slate-900 border border-slate-800 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500">
+            {searchQuery ? 'Tidak ada data pelanggan yang cocok dengan pencarian.' : 'Belum ada data pelanggan tersimpan.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 bg-slate-950/50">
+                  <th className="py-3 px-4 font-semibold">Nama Pelanggan</th>
+                  <th className="py-3 px-4 font-semibold">Nomor WhatsApp</th>
+                  <th className="py-3 px-4 font-semibold">Catatan</th>
+                  <th className="py-3 px-4 font-semibold text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/70">
+                {filtered.map((c) => (
+                  <tr key={c.idPelanggan} className="hover:bg-slate-800/60 transition-colors">
+                    <td className="py-3 px-4 font-bold text-white">{c.nama}</td>
+                    <td className="py-3 px-4 font-mono text-emerald-400">
+                      <a
+                        href={`https://wa.me/${c.noWhatsApp.replace(/^0/, '62')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:underline flex items-center gap-1.5"
+                      >
+                        <span>{c.noWhatsApp}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </td>
+                    <td className="py-3 px-4 text-slate-300">{c.catatan || '-'}</td>
+                    <td className="py-3 px-4 text-right space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(c)}
+                        className="px-2.5 py-1 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600 hover:text-white text-[11px] font-bold transition cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Yakin ingin menghapus data pelanggan "${c.nama}"?`)) {
+                            onDeletePelanggan(c.idPelanggan);
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white text-[11px] font-bold transition cursor-pointer"
+                      >
+                        Hapus
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-white text-sm">
+                {editItem ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Nama Pelanggan *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Cth: Budi Santoso"
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white text-xs focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Nomor WhatsApp *</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Cth: 08123456789"
+                  value={noWhatsApp}
+                  onChange={(e) => setNoWhatsApp(e.target.value)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white font-mono text-xs focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Catatan Pelanggan (Opsional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Cth: Pelanggan langganan VIP"
+                  value={catatan}
+                  onChange={(e) => setCatatan(e.target.value)}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white text-xs focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                >
+                  Simpan Pelanggan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

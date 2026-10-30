@@ -3,6 +3,7 @@ import {
   JadwalFotografi,
   OwnerProfile,
   PaketLayanan,
+  PelangganModel,
   RekeningModel,
 } from '../types/kafela';
 
@@ -30,6 +31,7 @@ export interface SeededWorkspaceData {
   jadwalAktif: JadwalFotografi[];
   jadwalArsip: JadwalFotografi[];
   timList: AnggotaTimModel[];
+  pelangganList: PelangganModel[];
 }
 
 export function generateDemoWorkspace(preset: ProfessionPresetKey = 'FOTO'): SeededWorkspaceData {
@@ -1248,6 +1250,13 @@ export function generateDemoWorkspace(preset: ProfessionPresetKey = 'FOTO'): See
         ownerParentId: 'demo-owner-kafela-001',
         tanggalDibuat: Date.now() - 5 * 86400000,
       },
+    ],
+    pelangganList: [
+      { idPelanggan: 'cust_001', nama: 'Nabila Putri, S.Kom', noWhatsApp: '081288990011', createdAt: Date.now() - 5 * 86400000 },
+      { idPelanggan: 'cust_002', nama: 'Dimas & Aurel', noWhatsApp: '081322334455', createdAt: Date.now() - 4 * 86400000 },
+      { idPelanggan: 'cust_003', nama: 'Rafi Ahmad Fauzi', noWhatsApp: '081299112233', createdAt: Date.now() - 3 * 86400000 },
+      { idPelanggan: 'cust_004', nama: 'Keluarga Bpk. H. Rahmat', noWhatsApp: '081388776655', createdAt: Date.now() - 2 * 86400000 },
+      { idPelanggan: 'cust_005', nama: 'Andi (Panitia SMAN 1)', noWhatsApp: '085711223344', createdAt: Date.now() - 1 * 86400000 },
     ],
   };
 }

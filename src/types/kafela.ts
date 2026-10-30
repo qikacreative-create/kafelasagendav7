@@ -280,3 +280,11 @@ export interface TopUpRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: number;
 }
+
+export interface PelangganModel {
+  idPelanggan: string;
+  nama: string;
+  noWhatsApp: string;
+  catatan?: string;
+  createdAt: number;
+}

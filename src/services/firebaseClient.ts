@@ -35,6 +35,7 @@ import {
   OwnerProfile,
   PaketLanggananTier,
   PaketLayanan,
+  PelangganModel,
   RekeningModel,
   TopUpRequest,
   UserRoleType,
@@ -395,6 +396,7 @@ export async function fetchOwnerWorkspaceFromFirebase(
   jadwalAktif: JadwalFotografi[];
   jadwalArsip: JadwalFotografi[];
   timList: AnggotaTimModel[];
+  pelangganList: PelangganModel[];
   totalReadsUsed: number;
 }> {
   const fb = initKafelaFirebase();
@@ -628,6 +630,16 @@ export async function fetchOwnerWorkspaceFromFirebase(
     console.warn('Gagal memuat arsip_kompresi:', e);
   }
 
+  // 7. Baca Pelanggan
+  let pelangganList: PelangganModel[] = [];
+  try {
+    const pelangganSnap = await getDocs(collection(fb.db, 'owners', targetOwnerId, 'pelanggan'));
+    readsCount += Math.max(1, pelangganSnap.size);
+    pelangganList = pelangganSnap.docs.map((d) => d.data() as PelangganModel);
+  } catch (e) {
+    console.warn('Gagal memuat pelanggan:', e);
+  }
+
   return {
     owner,
     rekening,
@@ -635,6 +647,7 @@ export async function fetchOwnerWorkspaceFromFirebase(
     jadwalAktif,
     jadwalArsip,
     timList,
+    pelangganList,
     totalReadsUsed: readsCount,
   };
 }
@@ -776,6 +789,25 @@ export async function deleteJadwalFromFirebase(
   if (!fb) return;
   const docId = (idJadwal || '').replace(/\//g, '_');
   await deleteDoc(doc(fb.db, 'owners', targetOwnerId, 'jadwal', docId));
+}
+
+export async function savePelangganToFirebase(
+  targetOwnerId: string,
+  pelanggan: PelangganModel
+): Promise<void> {
+  const fb = initKafelaFirebase();
+  if (!fb) return;
+  const docRef = doc(fb.db, 'owners', targetOwnerId, 'pelanggan', pelanggan.idPelanggan);
+  await setDoc(docRef, pelanggan, { merge: true });
+}
+
+export async function deletePelangganFromFirebase(
+  targetOwnerId: string,
+  idPelanggan: string
+): Promise<void> {
+  const fb = initKafelaFirebase();
+  if (!fb) return;
+  await deleteDoc(doc(fb.db, 'owners', targetOwnerId, 'pelanggan', idPelanggan));
 }
 
 export async function restoreArsipToFirebase(

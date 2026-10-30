@@ -10,6 +10,8 @@ import {
   Plus,
   Receipt,
   Sparkles,
+  UserPlus,
+  Users,
   X,
 } from 'lucide-react';
 import {
@@ -18,6 +20,7 @@ import {
   JadwalFotografi,
   McProtokolModel,
   PaketLayanan,
+  PelangganModel,
   WoKoordinasiModel,
 } from '../types/kafela';
 import {
@@ -32,11 +35,13 @@ interface ScheduleAndCashierFormProps {
   selectedDate?: Date;
   defaultDateMillis?: number;
   paketList: PaketLayanan[];
+  pelangganList?: PelangganModel[];
   jenisUsaha?: string;
   editItem?: JadwalFotografi | null;
   existingJadwal?: JadwalFotografi | null;
   allJadwalList?: JadwalFotografi[];
   onSave: (jadwal: JadwalFotografi, openStrukImmediately: boolean) => void;
+  onSavePelanggan?: (p: PelangganModel) => void;
   onOpenMasterPaket?: () => void;
   onCancel: () => void;
 }
@@ -47,11 +52,13 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
   selectedDate,
   defaultDateMillis,
   paketList,
+  pelangganList = [],
   jenisUsaha = '',
   editItem,
   existingJadwal,
   allJadwalList = [],
   onSave,
+  onSavePelanggan,
   onOpenMasterPaket,
   onCancel,
 }) => {
@@ -67,6 +74,7 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
   const [formMode, setFormMode] = useState<'KASIR_CEPAT' | 'AGENDA_LENGKAP'>(
     resolvedInitialMode
   );
+  const [saveToPelangganDb, setSaveToPelangganDb] = useState(false); // Default: tidak simpan
 
   const fallbackDateMs =
     (selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime())
@@ -103,7 +111,66 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
   );
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isManualPaket, setIsManualPaket] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const clientInputRef = useRef<HTMLDivElement>(null);
+
+  const uniqueCustomers = useMemo(() => {
+    const map = new Map<string, string>();
+    (allJadwalList || []).forEach((j) => {
+      const name = (j.namaKlien || '').trim();
+      const wa = (j.waPic || '').trim();
+      if (name && wa && !wa.includes('tidak tersedia')) {
+        map.set(name, wa);
+      }
+    });
+    return Array.from(map.entries()).map(([nama, wa]) => ({ nama, wa }));
+  }, [allJadwalList]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!namaKlien.trim() || namaKlien.trim().length < 1) return [];
+    const query = namaKlien.toLowerCase();
+    const map = new Map<string, { nama: string; wa: string; sumber: 'DATABASE' | 'RIWAYAT' }>();
+
+    (pelangganList || []).forEach((c) => {
+      if (c.nama && c.nama.trim()) {
+        map.set(c.nama.trim().toLowerCase(), {
+          nama: c.nama.trim(),
+          wa: c.noWhatsApp || '',
+          sumber: 'DATABASE',
+        });
+      }
+    });
+
+    (allJadwalList || []).forEach((j) => {
+      const name = (j.namaKlien || '').trim();
+      const wa = (j.waPic || '').trim();
+      if (name && wa && !wa.includes('tidak tersedia') && !map.has(name.toLowerCase())) {
+        map.set(name.toLowerCase(), {
+          nama: name,
+          wa: wa,
+          sumber: 'RIWAYAT',
+        });
+      }
+    });
+
+    return Array.from(map.values())
+      .filter((c) => c.nama.toLowerCase().includes(query) || c.wa.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [namaKlien, pelangganList, allJadwalList]);
+
+  const isExistingPelanggan = useMemo(() => {
+    const nameClean = namaKlien.trim().toLowerCase();
+    const waClean = waKlien.replace(/\D/g, '');
+    if (!nameClean && !waClean) return true;
+
+    return (pelangganList || []).some((c) => {
+      const cName = (c.nama || '').trim().toLowerCase();
+      const cWa = (c.noWhatsApp || '').replace(/\D/g, '');
+      return (nameClean && cName === nameClean) || (waClean.length >= 8 && cWa === waClean);
+    });
+  }, [namaKlien, waKlien, pelangganList]);
 
   const selectedPaket = useMemo(
     () => paketList.find((p) => p.namaPaket === paketNama),
@@ -114,6 +181,9 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (clientInputRef.current && !clientInputRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -305,6 +375,19 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
         ? nominalDp
         : 0;
 
+    const isExistingPelanggan = (pelangganList || []).some(
+      (c) => c.nama.toLowerCase() === namaKlien.trim().toLowerCase() || (waKlien.trim() && c.noWhatsApp === waKlien.trim())
+    );
+
+    if (!isExistingPelanggan && saveToPelangganDb && onSavePelanggan && namaKlien.trim() && waKlien.trim() && !waKlien.includes('tidak tersedia')) {
+      onSavePelanggan({
+        idPelanggan: `cust_${Date.now()}`,
+        nama: namaKlien.trim(),
+        noWhatsApp: waKlien.trim(),
+        createdAt: Date.now(),
+      });
+    }
+
     const newJadwal: JadwalFotografi = {
       idJadwal: activeEditItem?.idJadwal || generateSequentialInvoiceId(waktuMulaiMs, allJadwalList),
       namaAcara: finalAcara,
@@ -402,15 +485,59 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
       <form onSubmit={handleSubmit} className="px-1 py-1 space-y-2 text-[12px]">
         {/* Baris 1: Nama Klien & Nomor WA */}
         <div className="grid grid-cols-2 gap-1">
-          <div className="min-w-0">
+          <div ref={clientInputRef} className="min-w-0 relative">
             <input
               type="text"
               required
               placeholder="Nama pelanggan *"
               value={namaKlien}
-              onChange={(e) => setNamaKlien(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNamaKlien(val);
+                setShowSuggestions(true);
+                // Auto-fill WhatsApp jika nama yang diketik cocok persis dengan pelanggan tersimpan
+                const exact = (pelangganList || []).find(
+                  (c) => c.nama.trim().toLowerCase() === val.trim().toLowerCase()
+                );
+                if (exact && exact.noWhatsApp && (!waKlien.trim() || waKlien.includes('tidak tersedia'))) {
+                  setWaKlien(exact.noWhatsApp);
+                }
+              }}
+              onFocus={() => setShowSuggestions(true)}
               className="w-full rounded-lg bg-slate-950 border border-slate-700 px-4 py-3 text-white text-[12px] focus:border-sky-500 focus:outline-none"
             />
+            {showSuggestions && filteredCustomers.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden divide-y divide-slate-800">
+                <div className="px-3 py-1.5 bg-slate-950 text-[10px] text-slate-400 font-semibold flex items-center justify-between">
+                  <span>Pelanggan Tersimpan</span>
+                  <span className="text-sky-400 text-[9px]">Pilih untuk isi WA otomatis</span>
+                </div>
+                {filteredCustomers.map((cust, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setNamaKlien(cust.nama);
+                      setWaKlien(cust.wa);
+                      setShowSuggestions(false);
+                      setSaveToPelangganDb(false);
+                    }}
+                    className="px-3 py-2.5 hover:bg-slate-800 cursor-pointer flex items-center justify-between text-xs transition"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold text-white flex items-center gap-1.5">
+                        {cust.nama}
+                        {cust.sumber === 'DATABASE' && (
+                          <span className="text-[9px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded font-semibold">
+                            Database
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="font-mono text-emerald-400 text-[11px] font-semibold">{cust.wa}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="min-w-0">
@@ -423,6 +550,38 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
             />
           </div>
         </div>
+
+        {/* Pertanyaan saat Nama & No. Telp belum tersimpan di database (Default: Tidak Simpan) */}
+        {!isExistingPelanggan && namaKlien.trim().length >= 2 && waKlien.trim().length >= 4 && (
+          <div className="p-2.5 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2 shadow-inner">
+            <div className="flex items-center gap-2 text-[11px] text-amber-300 font-semibold">
+              <UserPlus className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>Data pelanggan ini belum tersimpan di database. Simpan data ini?</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs pl-5">
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                <input
+                  type="radio"
+                  name="simpanPelanggan"
+                  checked={!saveToPelangganDb}
+                  onChange={() => setSaveToPelangganDb(false)}
+                  className="accent-slate-400 cursor-pointer"
+                />
+                <span>Tidak Simpan (Default)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-emerald-400 hover:text-emerald-300 font-bold">
+                <input
+                  type="radio"
+                  name="simpanPelanggan"
+                  checked={saveToPelangganDb}
+                  onChange={() => setSaveToPelangganDb(true)}
+                  className="accent-emerald-500 cursor-pointer"
+                />
+                <span>Ya, Simpan ke Daftar Pelanggan</span>
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Khusus Agenda Event: Nama Acara, Lokasi, Tanggal & Jam */}
         {formMode === 'AGENDA_LENGKAP' && (
@@ -810,6 +969,24 @@ export const ScheduleAndCashierForm: React.FC<ScheduleAndCashierFormProps> = ({
             className="w-full rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-2 text-white text-[12px] focus:border-sky-500 focus:outline-none"
           />
         </div>
+
+        {/* Pertanyaan Simpan Pelanggan (Jika belum tersimpan di database, default Tidak) */}
+        {!activeEditItem && namaKlien.trim() && waKlien.trim() && !waKlien.includes('tidak tersedia') && !(pelangganList || []).some(c => c.nama.toLowerCase() === namaKlien.trim().toLowerCase() || c.noWhatsApp === waKlien.trim()) && (
+          <div className="rounded-lg bg-slate-950 border border-slate-800 p-2.5 flex items-center justify-between gap-2">
+            <div className="text-[11px] text-slate-300">
+              <span className="font-bold text-amber-300">Pelanggan Baru:</span> Apakah simpan data ini ke database pelanggan?
+            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={saveToPelangganDb}
+                onChange={(e) => setSaveToPelangganDb(e.target.checked)}
+                className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+              />
+              <span className="text-xs font-bold text-white">Simpan (Ya)</span>
+            </label>
+          </div>
+        )}
 
         {/* 4 MODUL KHUSUS PROFESI (MUA, FOTO, MC, WO) — Persis bs_tambahjadwal.xml */}
         {formMode === 'AGENDA_LENGKAP' && (

@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Layers,
   LogOut,
+  MapPin,
   Menu,
   MessageCircle,
   Monitor,
@@ -41,6 +42,7 @@ import {
   OwnerProfile,
   PaketLanggananTier,
   PaketLayanan,
+  PelangganModel,
   QuotaStats,
   RekeningModel,
   UserRoleType,
@@ -64,6 +66,7 @@ import {
   compressOldSchedulesToFirebase,
   deleteJadwalFromFirebase,
   deletePaketFromFirebase,
+  deletePelangganFromFirebase,
   deleteTimFromFirebase,
   fetchBrandBySlugOrDomain,
   fetchOwnerWorkspaceFromFirebase,
@@ -73,6 +76,7 @@ import {
   saveJadwalToFirebase,
   saveOwnerProfileToFirebase,
   savePaketToFirebase,
+  savePelangganToFirebase,
   saveRekeningToFirebase,
   saveTimToFirebase,
   subscribeLiveJadwalUltimate,
@@ -91,6 +95,7 @@ import { ScheduleAndCashierForm } from './components/ScheduleAndCashierForm';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import {
   ArsipPencarianView,
+  DaftarPelangganView,
   KelolaTimView,
   LaporanKeuanganView,
   MasterPaketView,
@@ -107,6 +112,7 @@ type ActiveNavTab =
   | 'ARSIP'
   | 'PAKET'
   | 'TIM'
+  | 'PELANGGAN'
   | 'PENGATURAN';
 
 const SESSION_META_KEY = 'KAFELA_SESSION_META_V5';
@@ -250,6 +256,9 @@ export default function App() {
   });
   const [timList, setTimList] = useState<AnggotaTimModel[]>(() => {
     return initialCache?.ws?.timList || initialDemo.timList;
+  });
+  const [pelangganList, setPelangganList] = useState<PelangganModel[]>(() => {
+    return initialCache?.ws?.pelangganList || initialDemo.pelangganList || [];
   });
 
   // Statistik Anti-Boncos
@@ -402,6 +411,7 @@ export default function App() {
           setJadwalArsip(remote.jadwalArsip || []);
           setRekening(remote.rekening || initialDemo.rekening);
           setTimList(remote.timList || []);
+          setPelangganList(remote.pelangganList || []);
         }
       } catch (e) {
         console.warn('Gagal memuat workspace brand:', e);
@@ -785,6 +795,7 @@ export default function App() {
           jadwalAktif,
           jadwalArsip,
           timList,
+          pelangganList,
         })
       );
       localStorage.setItem(
@@ -798,7 +809,7 @@ export default function App() {
         })
       );
     } catch {}
-  }, [sessionMode, targetOwnerId, userRole, activeUserName, activeUserEmail, owner, rekening, paketList, jadwalAktif, jadwalArsip, timList]);
+  }, [sessionMode, targetOwnerId, userRole, activeUserName, activeUserEmail, owner, rekening, paketList, jadwalAktif, jadwalArsip, timList, pelangganList]);
 
   // Live Sync Otomatis khusus Paket Ultimate (pada mode Firebase Asli)
   useEffect(() => {
@@ -845,6 +856,7 @@ export default function App() {
     setJadwalAktif(seeded.jadwalAktif);
     setJadwalArsip(seeded.jadwalArsip);
     setTimList(seeded.timList);
+    setPelangganList(seeded.pelangganList || []);
     setTargetOwnerId(seeded.owner.uid);
     setUserRole('owner');
     setActiveUserName(seeded.owner.namaOwner);
@@ -870,6 +882,7 @@ export default function App() {
           jadwalAktif: seeded.jadwalAktif,
           jadwalArsip: seeded.jadwalArsip,
           timList: seeded.timList,
+          pelangganList: seeded.pelangganList || [],
         })
       );
       localStorage.setItem(
@@ -933,6 +946,7 @@ export default function App() {
     setJadwalArsip([]);
     setPaketList([]);
     setTimList([]);
+    setPelangganList([]);
     setSessionMode(null);
     setToastMessage('Keluar dari Mode Demo');
     setTimeout(() => setToastMessage(null), 2500);
@@ -967,6 +981,7 @@ export default function App() {
         setJadwalAktif(existingTargetCache.jadwalAktif || []);
         setJadwalArsip(existingTargetCache.jadwalArsip || []);
         setTimList(existingTargetCache.timList || []);
+        setPelangganList(existingTargetCache.pelangganList || []);
       } else {
         setOwner((prev) => ({
           ...initialDemo.owner,
@@ -978,6 +993,7 @@ export default function App() {
         setJadwalArsip([]);
         setPaketList([]);
         setTimList([]);
+        setPelangganList([]);
       }
     }
 
@@ -1006,6 +1022,7 @@ export default function App() {
         setJadwalAktif(existingTargetCache.jadwalAktif || []);
         setJadwalArsip(existingTargetCache.jadwalArsip || []);
         setTimList(existingTargetCache.timList || []);
+        setPelangganList(existingTargetCache.pelangganList || []);
         setQuotaStats((prev) => ({
           ...prev,
           readsSession: 0,
@@ -1025,6 +1042,7 @@ export default function App() {
       setJadwalAktif(workspace.jadwalAktif);
       setJadwalArsip(workspace.jadwalArsip);
       setTimList(workspace.timList);
+      setPelangganList(workspace.pelangganList || []);
 
       const targetCacheKey = getWorkspaceCacheKey(fbSession.targetOwnerId);
       try {
@@ -1042,6 +1060,7 @@ export default function App() {
             jadwalAktif: workspace.jadwalAktif,
             jadwalArsip: workspace.jadwalArsip,
             timList: workspace.timList,
+            pelangganList: workspace.pelangganList || [],
           })
         );
         localStorage.setItem(
@@ -1194,6 +1213,42 @@ export default function App() {
     setQuotaStats((prev) => ({ ...prev, writesSession: prev.writesSession + 1 }));
     if (sessionMode === 'FIREBASE') {
       await deleteJadwalFromFirebase(targetOwnerId, idJadwal);
+    }
+  };
+
+  const handleSavePelanggan = async (pelanggan: PelangganModel) => {
+    setPelangganList((prev) => {
+      const idx = prev.findIndex((p) => p.idPelanggan === pelanggan.idPelanggan);
+      if (idx !== -1) {
+        const copy = [...prev];
+        copy[idx] = pelanggan;
+        return copy;
+      }
+      return [pelanggan, ...prev];
+    });
+    setToastMessage('✓ Data pelanggan berhasil disimpan');
+    setTimeout(() => setToastMessage(null), 3000);
+
+    if (sessionMode === 'FIREBASE') {
+      try {
+        await savePelangganToFirebase(targetOwnerId, pelanggan);
+      } catch (err) {
+        console.warn('Gagal menyimpan pelanggan ke Firestore:', err);
+      }
+    }
+  };
+
+  const handleDeletePelanggan = async (idPelanggan: string) => {
+    setPelangganList((prev) => prev.filter((p) => p.idPelanggan !== idPelanggan));
+    setToastMessage('Data pelanggan dihapus');
+    setTimeout(() => setToastMessage(null), 3000);
+
+    if (sessionMode === 'FIREBASE') {
+      try {
+        await deletePelangganFromFirebase(targetOwnerId, idPelanggan);
+      } catch (err) {
+        console.warn('Gagal menghapus pelanggan dari Firestore:', err);
+      }
     }
   };
 
@@ -1899,6 +1954,24 @@ if (isDrawer) setDrawerOpen(false);
             >
               <Layers className="w-4 h-4 text-amber-400 shrink-0" />
               <span>Paket Layanan</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('PELANGGAN');
+                if (isDrawer) setDrawerOpen(false);
+                bumpCacheHit();
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold transition-all cursor-pointer ${
+                activeTab === 'PELANGGAN'
+                  ? 'text-white'
+                  : 'text-[#DDDDDD] hover:bg-white/5'
+              }`}
+              style={getNavActiveItemStyle(activeTab === 'PELANGGAN')}
+            >
+              <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Daftar Pelanggan</span>
             </button>
 
             <button
@@ -2752,12 +2825,22 @@ if (isDrawer) setDrawerOpen(false);
                             >
                               {cell.dayNumber}
                             </span>
+
+                            {/* Badge Jumlah Event jika lebih dari 1 */}
+                            {cell.events.length > 1 && (
+                              <span
+                                className="absolute -bottom-0.5 -right-0.5 z-20 min-w-3.5 h-3.5 px-0.5 rounded-full bg-sky-600 text-white font-black text-[8.5px] flex items-center justify-center shadow-xs pointer-events-none border border-slate-900"
+                                title={`${cell.events.length} Jadwal`}
+                              >
+                                {cell.events.length}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Keterangan Indikator Tanggal SVG APK: Booking Web • Booking • Sudah DP • Lunas */}
+                    {/* Keterangan Indikator Tanggal SVG APK: Booking Web • Booking • Sudah DP • Lunas (Interaktif & Bisa Diklik untuk Filter) */}
                     <div
                       className="mt-3 pt-2.5 border-t flex flex-wrap items-center justify-between gap-1.5 text-[10px] sm:text-[11px]"
                       style={{
@@ -2765,7 +2848,25 @@ if (isDrawer) setDrawerOpen(false);
                         color: textSecondaryColor,
                       }}
                     >
-                      <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (statusFilter === 'BOOKING_WEB') {
+                            setStatusFilter('SEMUA_BULAN');
+                            setSelectedDateStr(null);
+                          } else {
+                            setStatusFilter('BOOKING_WEB');
+                            setSelectedDateStr(null);
+                          }
+                          bumpCacheHit();
+                        }}
+                        className={`flex items-center gap-1 cursor-pointer transition-all px-0.5 py-0.5 rounded ${
+                          statusFilter === 'BOOKING_WEB'
+                            ? 'font-bold bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/50'
+                            : 'hover:opacity-80 hover:bg-white/5'
+                        }`}
+                        title="Klik untuk memfilter pesanan form booking web"
+                      >
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
                           <path
                             fill="#FFCE1b"
@@ -2776,9 +2877,28 @@ if (isDrawer) setDrawerOpen(false);
                             d="M 3,5 L 8,19 L 12,12 L 16,19 L 21,5 L 17,5 L 14,14 L 12,10 L 10,14 L 7,5 Z"
                           />
                         </svg>
-                        <span>Web </span>
-                      </div>
-                      <div className="flex items-center gap-1">
+                        <span>Web ({listPesananWebMenunggu.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (statusFilter === 'BOOKING_BARU') {
+                            setStatusFilter('SEMUA_BULAN');
+                            setSelectedDateStr(null);
+                          } else {
+                            setStatusFilter('BOOKING_BARU');
+                            setSelectedDateStr(null);
+                          }
+                          bumpCacheHit();
+                        }}
+                        className={`flex items-center gap-1 cursor-pointer transition-all px-0.5 py-0.5 rounded ${
+                          statusFilter === 'BOOKING_BARU'
+                            ? 'font-bold bg-orange-500/20 text-orange-300 ring-1 ring-orange-400/50'
+                            : 'hover:opacity-80 hover:bg-white/5'
+                        }`}
+                        title="Klik untuk memfilter jadwal Booking"
+                      >
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
                           <path
                             stroke="#F39C12"
@@ -2789,9 +2909,28 @@ if (isDrawer) setDrawerOpen(false);
                             d="M11.5,3.5 C16,2.5 21.5,6 21,12.5 C20.5,19 14.5,21.5 9,20.5 C3.5,19.5 2.5,13 4,8.5 C5.5,4 9.5,3 12.5,4"
                           />
                         </svg>
-                         <span>Booking ({ringkasanBulanIni.jmlBookingBaru })</span>
-                      </div>
-     <div className="flex items-center gap-1">
+                        <span>Booking ({ringkasanBulanIni.jmlBookingBaru})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (statusFilter === 'SUDAH_DP') {
+                            setStatusFilter('SEMUA_BULAN');
+                            setSelectedDateStr(null);
+                          } else {
+                            setStatusFilter('SUDAH_DP');
+                            setSelectedDateStr(null);
+                          }
+                          bumpCacheHit();
+                        }}
+                        className={`flex items-center gap-1 cursor-pointer transition-all px-0.5 py-0.5 rounded ${
+                          statusFilter === 'SUDAH_DP'
+                            ? 'font-bold bg-rose-500/20 text-rose-300 ring-1 ring-rose-400/50'
+                            : 'hover:opacity-80 hover:bg-white/5'
+                        }`}
+                        title="Klik untuk memfilter jadwal Sudah DP"
+                      >
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
                           <path
                             fill="#E74C3C"
@@ -2799,16 +2938,35 @@ if (isDrawer) setDrawerOpen(false);
                           />
                         </svg>
                         <span>Sudah Dp ({ringkasanBulanIni.jmlSudahDp})</span>
-                      </div>
-                      <div className="flex items-center gap-1">
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (statusFilter === 'LUNAS') {
+                            setStatusFilter('SEMUA_BULAN');
+                            setSelectedDateStr(null);
+                          } else {
+                            setStatusFilter('LUNAS');
+                            setSelectedDateStr(null);
+                          }
+                          bumpCacheHit();
+                        }}
+                        className={`flex items-center gap-1 cursor-pointer transition-all px-0.5 py-0.5 rounded ${
+                          statusFilter === 'LUNAS'
+                            ? 'font-bold bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/50'
+                            : 'hover:opacity-80 hover:bg-white/5'
+                        }`}
+                        title="Klik untuk memfilter jadwal Lunas"
+                      >
                         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0">
                           <path
                             fill="#27AE60"
                             d="M 12,2 C 18,2 23,7 23,13 C 23,19 18,23 12,23 C 6,23 2,19 2,13 C 2,8 5,4 10,3 C 15,2 19,5 19,10 C 19,15 15,19 10,19 C 8,19 6,18 4,16 C 6,17 7,18 10,18 C 14,18 18,14 18,10 C 18,6 14,3.5 10,4.5 C 6,5.5 3,9 3,13 C 3,18 7,22 12,22 C 17,22 22,18 22,13 C 22,8 17,3 12,2 Z"
                           />
                         </svg>
-                       <span>Lunas ({ringkasanBulanIni.jmlLunas})</span>
-                      </div>
+                        <span>Lunas ({ringkasanBulanIni.jmlLunas})</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3158,157 +3316,141 @@ if (isDrawer) setDrawerOpen(false);
                             style={{ backgroundColor: statusStripColor }}
                           />
 
-                          {/* Isi Kartu Jadwal */}
-                          <div className={isMobileLayout ? 'flex-1 px-3 py-2.5' : 'flex-1 px-4 py-3.5'}>
-                            {/* Baris Atas: Jam + Nama Acara & Badge Status */}
-                            <div className="flex items-start justify-between gap-2">
-                              <h3
-                                className="font-bold leading-snug"
-                                style={{
-                                  fontSize: isMobileLayout ? '13.5px' : '15px',
-                                  color: textPrimaryColor,
-                                }}
-                              >
-                                {statusFilter !== 'TANGGAL_DIPILIH'
-                                  ? `${formatTanggalIndo(item.tanggalMulai || item.waktuMulai)} • ${formatJamWIB(item.waktuMulai)} - ${item.namaAcara}`
-                                  : `${formatJamWIB(item.waktuMulai)} - ${item.namaAcara}`}
-                              </h3>
+                       {/* Isi Kartu Jadwal */}
+<div className={isMobileLayout ? 'flex-1 px-3 py-2.5' : 'flex-1 px-4 py-3.5'}>
+  
+  {/* Baris Tanggal di Atas (jika bukan filter tanggal terpilih) */}
+  {statusFilter !== 'TANGGAL_DIPILIH' && (item.tanggalMulai || item.waktuMulai) && (
+    <div 
+      className="mb-1 font-medium tracking-wide"
+      style={{
+        fontSize: isMobileLayout ? '10.5px' : '11.5px',
+        color: textSecondaryColor,
+        opacity: 0.85
+      }}
+    >
+      📅 {formatTanggalIndo(item.tanggalMulai || item.waktuMulai)}
+    </div>
+  )}
 
-                              <span
-                                className="px-2.5 py-0.5 rounded font-bold uppercase shrink-0"
-                                style={{
-                                  fontSize: isMobileLayout ? '10px' : '11px',
-                                  backgroundColor: isKacaGelap
-                                    ? 'rgba(255,255,255,0.1)'
-                                    : '#ECF0F1',
-                                  color: statusStripColor,
-                                }}
-                              >
-                                {statusBadgeLabel}
-                              </span>
-                            </div>
+  {/* Baris Atas: Jam + Nama Acara & Badge Status */}
+  <div className="flex items-start justify-between gap-2">
+    <h3
+      className="font-bold leading-snug"
+      style={{
+        fontSize: isMobileLayout ? '13.5px' : '15px',
+        color: textPrimaryColor,
+      }}
+    >
+      {formatJamWIB(item.waktuMulai)} — {item.namaAcara}
+    </h3>
 
-                            {/* Nama Klien & WA */}
-                            <p
-                              className="mt-0.5 leading-snug"
-                              style={{
-                                fontSize: isMobileLayout ? '12px' : '13px',
-                                color: textSecondaryColor,
-                              }}
-                            >
-                              {item.namaKlien} ({item.waPic || '-'})
-                            </p>
+    <span
+      className="px-2.5 py-0.5 rounded font-bold uppercase shrink-0"
+      style={{
+        fontSize: isMobileLayout ? '10px' : '11px',
+        backgroundColor: isKacaGelap
+          ? 'rgba(255,255,255,0.1)'
+          : '#ECF0F1',
+        color: statusStripColor,
+      }}
+    >
+      {statusBadgeLabel}
+    </span>
+  </div>
 
-                            {/* Paket */}
-                            <p
-                              className="mt-0.5 font-bold leading-snug"
-                              style={{
-                                fontSize: isMobileLayout ? '12px' : '13px',
-                                color: '#64B5F6',
-                              }}
-                            >
-                              {item.paket || '-'}
-                              {item.namaTambahan ? ` + ${item.namaTambahan}` : ''}
-                            </p>
+  {/* Nama Klien & WA */}
+  <p
+    className="mt-1 leading-snug"
+    style={{
+      fontSize: isMobileLayout ? '12px' : '13px',
+      color: textSecondaryColor,
+    }}
+  >
+    <span>{item.namaKlien}</span>
+    <span 
+      className="inline-block ml-1.5 opacity-80"
+      style={{ fontSize: isMobileLayout ? '10.5px' : '11.5px' }}
+    >
+      ({item.waPic || '-'})
+    </span>
+  </p>
 
-                            {/* Lokasi */}
-                            <p
-                              className="mt-0.5 leading-snug"
-                              style={{
-                                fontSize: isMobileLayout ? '11.5px' : '12.5px',
-                                color: textSecondaryColor,
-                              }}
-                            >
-                              {item.lokasi || 'Studio'}
-                            </p>
+  {/* Paket */}
+  <p
+    className="mt-0.5 font-bold leading-snug"
+    style={{
+      fontSize: isMobileLayout ? '12px' : '13px',
+      color: '#64B5F6',
+    }}
+  >
+    {item.paket || '-'}
+    {item.namaTambahan ? ` + ${item.namaTambahan}` : ''}
+  </p>
 
-                            {/* Catatan di Bawah Alamat */}
-                            {Boolean(item.catatan && item.catatan.trim()) && (
-                              <p
-                                className="mt-1 leading-snug flex items-start gap-1.5"
-                                style={{
-                                  fontSize: isMobileLayout ? '11px' : '12px',
-                                  color: isKacaGelap ? '#FDE047' : '#B45309',
-                                }}
-                              >
-                                <span className="italic font-medium">{item.catatan}</span>
-                              </p>
-                            )}
+  {/* Lokasi */}
+  <p
+    className="mt-0.5 leading-snug inline-flex items-center gap-1"
+    style={{
+      fontSize: isMobileLayout ? '11.5px' : '12.5px',
+      color: textSecondaryColor,
+    }}
+  >
+    <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: textSecondaryColor }} />
+    <span>{item.lokasi || 'Studio'}</span>
+  </p>
 
-                            {/* Garis Pemisah & Baris Harga */}
-                            {!isKruAnggota && (
-                              <>
-                                <div
-                                  className="my-2 h-px"
-                                  style={{
-                                    backgroundColor: isKacaGelap
-                                      ? 'rgba(255,255,255,0.12)'
-                                      : '#EEEEEE',
-                                  }}
-                                />
-                                <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
-                                  <span style={{ color: textPrimaryColor }}>
-                                    Total: {keRupiah(totalBersih)}
-                                  </span>
-                                  <span
-                                    style={{
-                                      color:
-                                        sisaTagihan <= 0 || stLower === 'lunas'
-                                          ? '#27AE60'
-                                          : '#E74C3C',
-                                    }}
-                                  >
-                                    {sisaTagihan <= 0 || stLower === 'lunas'
-                                      ? 'LUNAS'
-                                      : `Sisa: ${keRupiah(sisaTagihan)}`}
-                                  </span>
-                                </div>
-                              </>
-                            )}
-                          </div>
+  {/* Catatan di Bawah Alamat */}
+  {Boolean(item.catatan && item.catatan.trim()) && (
+    <p
+      className="mt-1 leading-snug flex items-start gap-1.5"
+      style={{
+        fontSize: isMobileLayout ? '11px' : '12px',
+        color: isKacaGelap ? '#FDE047' : '#B45309',
+      }}
+    >
+      <span className="italic font-medium">{item.catatan}</span>
+    </p>
+  )}
+
+  {/* Garis Pemisah & Baris Harga */}
+  {!isKruAnggota && (
+    <>
+      <div
+        className="my-2 h-px"
+        style={{
+          backgroundColor: isKacaGelap
+            ? 'rgba(255,255,255,0.12)'
+            : '#EEEEEE',
+        }}
+      />
+      <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
+        <span style={{ color: textPrimaryColor }}>
+          Total: {keRupiah(totalBersih)}
+        </span>
+        <span
+          style={{
+            color:
+              sisaTagihan <= 0 || stLower === 'lunas'
+                ? '#27AE60'
+                : '#E74C3C',
+          }}
+        >
+          {sisaTagihan <= 0 || stLower === 'lunas'
+            ? ''
+            : `Sisa: ${keRupiah(sisaTagihan)}`}
+        </span>
+      </div>
+    </>
+  )}
+</div>
                         </div>
                       );
                     })}
                   </div>
                 )}
 
-                {/* BAR FILTER STATUS DI PALING BAWAH KHUSUS LAYAR HP */}
-                {isMobileLayout && (
-                  <div className="mt-3 pt-2.5 border-t border-white/15 flex flex-wrap items-center gap-1.5">
-                    {(
-                      [
-                        { id: 'SEMUA_BULAN', label: 'Semua', activeBg: '#2980B9' },
-                        { id: 'TANGGAL_DIPILIH', label: 'Tanggal Ini', activeBg: '#8E44AD' },
-                        { id: 'LUNAS', label: 'Lunas', activeBg: '#27AE60' },
-                        { id: 'SUDAH_DP', label: 'Sudah DP', activeBg: '#D35400' },
-                        { id: 'BELUM_LUNAS', label: 'Belum Lunas', activeBg: '#C0392B' },
-                      ] as const
-                    ).map((f) => {
-                      const isActive = statusFilter === f.id;
-                      return (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedDateStr(null);
-                            setStatusFilter(f.id);
-                            bumpCacheHit();
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
-                          style={{
-                            backgroundColor: isActive ? f.activeBg : 'rgba(0, 0, 0, 0.35)',
-                            color: '#FFFFFF',
-                            border: isActive
-                              ? '1px solid rgba(255, 255, 255, 0.5)'
-                              : '1px solid rgba(255, 255, 255, 0.12)',
-                          }}
-                        >
-                          {f.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+             
               </div>
             </div>
           </div>
@@ -3403,6 +3545,14 @@ if (isDrawer) setDrawerOpen(false);
           />
         )}
 
+        {activeTab === 'PELANGGAN' && !isKruAnggota && (
+          <DaftarPelangganView
+            pelangganList={pelangganList}
+            onSavePelanggan={handleSavePelanggan}
+            onDeletePelanggan={handleDeletePelanggan}
+          />
+        )}
+
         {activeTab === 'TIM' && !isKruAnggota && getLimits(owner.paketAktif).canManageTeam && (
           <KelolaTimView
             timList={timList}
@@ -3466,7 +3616,7 @@ if (isDrawer) setDrawerOpen(false);
       {isMobileLayout && (
         <nav
           aria-label="Navigation Bar Bawah"
-          className="fixed bottom-0 left-0 right-0 z-40 border-t transition-all duration-300 shadow-2xl flex items-center justify-around px-2 py-1 select-none"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t transition-all duration-300 shadow-2xl flex items-center justify-around px-1.5 py-1 select-none"
           style={{
             ...navBackgroundComputed,
             paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 6px)',
@@ -3481,7 +3631,7 @@ if (isDrawer) setDrawerOpen(false);
               setStatusFilter('SEMUA_BULAN');
               bumpCacheHit();
             }}
-            className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+            className="flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-xl transition-all cursor-pointer relative"
             style={{
               color: activeTab === 'KALENDER' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
               backgroundColor: activeTab === 'KALENDER' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
@@ -3489,10 +3639,10 @@ if (isDrawer) setDrawerOpen(false);
             }}
           >
             <CalendarIcon className="w-5 h-5 shrink-0" />
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Kalender</span>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tight truncate max-w-full">Kalender</span>
             {activeTab === 'KALENDER' && (
               <span
-                className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: '#F39C12' }}
               />
             )}
@@ -3506,7 +3656,7 @@ if (isDrawer) setDrawerOpen(false);
                 setActiveTab('LAPORAN');
                 bumpCacheHit();
               }}
-              className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+              className="flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-xl transition-all cursor-pointer relative"
               style={{
                 color: activeTab === 'LAPORAN' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
                 backgroundColor: activeTab === 'LAPORAN' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
@@ -3514,17 +3664,21 @@ if (isDrawer) setDrawerOpen(false);
               }}
             >
               <BarChart3 className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] font-bold mt-0.5 tracking-tight">Laporan</span>
+              <span className="text-[10px] font-bold mt-0.5 tracking-tight truncate max-w-full">Laporan</span>
               {activeTab === 'LAPORAN' && (
                 <span
-                  className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                  className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full"
                   style={{ backgroundColor: '#F39C12' }}
                 />
               )}
             </button>
           )}
 
-          {/* 3. TOMBOL TENGAH (+) TRANSAKSI / KASIR CEPAT */}
+
+
+          {/* 3. TAMBAH TRANSAKSI */}
+
+          {/* 3. TAMBAH TRANSAKSI */}
           {!isKruAnggota && (
             <button
               type="button"
@@ -3532,25 +3686,48 @@ if (isDrawer) setDrawerOpen(false);
                 setEditingJadwal(null);
                 setFabChoiceOpen(true);
               }}
-              className="flex flex-col items-center justify-center px-1 -mt-4 cursor-pointer group active:scale-95 transition-transform"
-              title="Kasir Cepat & Tambah Agenda"
+              className="flex flex-col items-center justify-center flex-1 rounded-xl transition-all cursor-pointer relative group -top-3"
+              title="Kasir Cepat & Tambah Transaksi"
             >
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-xl border-2 border-white/50 transition-all duration-200 group-hover:scale-105"
-                style={{
-                  backgroundColor: navThemeColor,
-                  boxShadow: `0 6px 18px ${hexToRgba(navThemeColor, 0.7)}`,
-                }}
+                className="w-14 h-12 rounded-full flex items-center justify-center text-white shadow-lg border-1 border-white transition-transform group-hover:scale-110 active:scale-95"
+                style={{ backgroundColor: navThemeColor }}
               >
                 <Plus className="w-6 h-6 stroke-[2.8]" />
               </div>
-              <span className="text-[9.5px] font-extrabold text-white mt-0.5 drop-shadow-sm">
-                + Transaksi
-              </span>
+
             </button>
           )}
 
-          {/* 4. ARSIP */}
+
+          {/* 4. LAYANAN (MEMBUKA JENIS LAYANAN / PAKET) */}
+          {!isKruAnggota && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('PAKET');
+                bumpCacheHit();
+              }}
+              className="flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-xl transition-all cursor-pointer relative"
+              style={{
+                color: activeTab === 'PAKET' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
+                backgroundColor: activeTab === 'PAKET' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                border: activeTab === 'PAKET' ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
+              }}
+              title="Layanan & Jenis Layanan"
+            >
+              <Layers className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] font-bold mt-0.5 tracking-tight truncate max-w-full">Layanan</span>
+              {activeTab === 'PAKET' && (
+                <span
+                  className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: '#F39C12' }}
+                />
+              )}
+            </button>
+          )}
+
+          {/* 5. ARSIP */}
           {!isKruAnggota && (
             <button
               type="button"
@@ -3558,7 +3735,7 @@ if (isDrawer) setDrawerOpen(false);
                 setActiveTab('ARSIP');
                 bumpCacheHit();
               }}
-              className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
+              className="flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-xl transition-all cursor-pointer relative"
               style={{
                 color: activeTab === 'ARSIP' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
                 backgroundColor: activeTab === 'ARSIP' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
@@ -3566,38 +3743,15 @@ if (isDrawer) setDrawerOpen(false);
               }}
             >
               <Archive className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] font-bold mt-0.5 tracking-tight">Arsip</span>
+              <span className="text-[10px] font-bold mt-0.5 tracking-tight truncate max-w-full">Arsip</span>
               {activeTab === 'ARSIP' && (
                 <span
-                  className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
+                  className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full"
                   style={{ backgroundColor: '#F39C12' }}
                 />
               )}
             </button>
           )}
-
-          {/* 5. MENU & PENGATURAN */}
-          <button
-            type="button"
-            onClick={() => {
-              setDrawerOpen(true);
-            }}
-            className="flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-xl transition-all cursor-pointer relative"
-            style={{
-              color: (drawerOpen || activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)',
-              backgroundColor: (activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
-              border: (activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') ? '1px solid rgba(255, 255, 255, 0.25)' : '1px solid transparent',
-            }}
-          >
-            <Menu className="w-5 h-5 shrink-0" />
-            <span className="text-[10px] font-bold mt-0.5 tracking-tight">Menu</span>
-            {(activeTab === 'PENGATURAN' || activeTab === 'PAKET' || activeTab === 'TIM') && (
-              <span
-                className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: '#F39C12' }}
-              />
-            )}
-          </button>
         </nav>
       )}
 
@@ -3921,11 +4075,13 @@ if (isDrawer) setDrawerOpen(false);
                 selectedDateStr ? new Date(`${selectedDateStr}T09:00:00`).getTime() : Date.now()
               }
               paketList={paketList}
+              pelangganList={pelangganList}
               jenisUsaha={owner.jenisUsaha}
               editItem={formModalMode === 'EDIT_JADWAL' ? editingJadwal : null}
               existingJadwal={formModalMode === 'EDIT_JADWAL' ? editingJadwal : null}
               allJadwalList={[...jadwalAktif, ...jadwalArsip]}
               onSave={handleSaveJadwal}
+              onSavePelanggan={handleSavePelanggan}
               onOpenMasterPaket={() => {
                 setFormModalMode(null);
                 setEditingJadwal(null);

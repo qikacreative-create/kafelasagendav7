@@ -81,6 +81,10 @@
       "schema": "ArsipKompresi",
       "description": "Arsip jadwal lama terkompresi"
     },
+    "/owners/{ownerId}/pelanggan/{pelangganId}": {
+      "schema": "Pelanggan",
+      "description": "Riwayat data kontak pelanggan studio"
+    },
     "/tim_studio/{staffId}": {
       "schema": "Staff",
       "description": "Indeks peran staf untuk otorisasi cepat"
